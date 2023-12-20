@@ -1,8 +1,17 @@
-# codacy-public-template
+# Codacy IntelliJ IDEA extension
 
-Template repository for new public repositories. 
 
-## GitHub actions
+## Prerequisites
 
-This repository has the common GitHub actions that we want to have accross all of our public repositories.
-They should be kept at `.github/workflows`
+## Installation
+
+## Usage
+
+## Contributing
+
+We welcome all contributions, from small bug fixes to large features.
+
+For information on how to contribute to this project, please refer to the [contributing guidelines](https://github.com/codacy/codacy-intellij-extension/blob/main/CONTRIBUTING.md).
+
+## Troubleshooting
+
