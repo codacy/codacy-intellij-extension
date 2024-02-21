@@ -1,3 +1,4 @@
+[//]: # (TODO: technical writers)
 # Contributing
 
 Thank you for your interest in contributing to the Codacy IntelliJ IDEA Extension! This extension aims to provide an integrated experience for maintaining code quality within your IntelliJ IDEA environment, leveraging Codacy's automated code reviews.
