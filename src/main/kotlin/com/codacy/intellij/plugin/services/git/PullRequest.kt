@@ -109,8 +109,8 @@ class PullRequest(
                 (prWithAnalysis!!.newIssues) > 0 ||
                 (prWithAnalysis!!.deltaClonesCount) > 0 ||
                 (prWithAnalysis!!.deltaComplexity) > 0 ||
-                (prWithAnalysis!!.coverage.deltaCoverage != null && prWithAnalysis!!.coverage.deltaCoverage!! < -0.05) ||
-                (prWithAnalysis!!.coverage.diffCoverage?.value != null && prWithAnalysis!!.coverage.diffCoverage?.value!! < 50)
+                (prWithAnalysis!!.coverage?.deltaCoverage != null && prWithAnalysis!!.coverage?.deltaCoverage!! < -0.05) ||
+                (prWithAnalysis!!.coverage?.diffCoverage?.value != null && prWithAnalysis!!.coverage?.diffCoverage?.value!! < 50)
             ) {
                 showNotification(
                     "Your pull request is up to standards! Check how to improve your code even more",

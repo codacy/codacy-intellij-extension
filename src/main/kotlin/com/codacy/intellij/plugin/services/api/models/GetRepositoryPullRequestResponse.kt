@@ -8,10 +8,10 @@ data class GetRepositoryPullRequestResponse(
     val fixedIssues: Int,
     val deltaComplexity: Int,
     val deltaClonesCount: Int,
-    val deltaCoverageWithDecimals: Int,
+    val deltaCoverageWithDecimals: Double,
     val deltaCoverage: Int,
     val diffCoverage: Int,
-    val coverage: CoverageDetails,
+    val coverage: CoverageDetails?,
     val quality: QualityDetails,
     val meta: MetaInfo
 )
@@ -37,7 +37,7 @@ data class Owner(
 )
 
 data class CoverageDetails(
-    val deltaCoverage: Int?,
+    val deltaCoverage: Double?,
     val diffCoverage: DiffCoverage?,
     val isUpToStandards: Boolean,
     val resultReasons: List<ResultReason>
