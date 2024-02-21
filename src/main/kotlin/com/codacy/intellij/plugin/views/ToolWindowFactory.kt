@@ -30,7 +30,6 @@ import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeCellRenderer
 import javax.swing.tree.DefaultTreeModel
 import com.sun.net.httpserver.HttpServer
-import java.awt.Dimension
 import java.net.InetSocketAddress
 import java.net.URLEncoder
 import javax.swing.*
@@ -49,7 +48,7 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
 
     private var listener: Disposable? = null
 
-    private fun startLocalHttpServer(project: Project, toolWindow: ToolWindow, customUri: String? = null) {
+    private fun startLocalHttpServer(project: Project, toolWindow: ToolWindow) {
         val configService = service<Config>()
         var port = 8100
         var server: HttpServer? = null
@@ -88,9 +87,8 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
             }
         }
         server.start()
-        val loginUri = if (customUri.isNullOrBlank()) configService.loginUri else customUri
         val encodedRedirectUrl = URLEncoder.encode("http://localhost:$port/token?token=", "UTF-8")
-        val url = "$loginUri/?redirectUrl=$encodedRedirectUrl"
+        val url = "${configService.loginUri}/?redirectUrl=$encodedRedirectUrl"
 
         BrowserUtil.open(url)
         timeoutManager.startTimeout(60000 * 10) {
@@ -107,14 +105,9 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
         toolWindow.setIcon(IconUtils.CodacyIcon)
         val panel = JPanel(BorderLayout())
 
-        panel.add(JLabel("Enter custom login URI to override"), BorderLayout.CENTER)
-        val customLoginUriField = JTextField()
-        customLoginUriField.preferredSize = Dimension(200, 30)
-        panel.add(customLoginUriField, BorderLayout.SOUTH)
-
         val signInButton = JButton("Sign in")
         signInButton.addActionListener {
-            startLocalHttpServer(project, toolWindow, customLoginUriField.text)
+            startLocalHttpServer(project, toolWindow)
         }
         panel.add(signInButton, BorderLayout.NORTH)
 
@@ -385,11 +378,11 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
 
     private fun getCoverageNodes(rootNode: DefaultMutableTreeNode, pr: PullRequest) {
         val messages: MutableList<String> = mutableListOf()
-        if (pr.prWithAnalysis!!.coverage.diffCoverage?.cause == "ValueIsPresent") {
-            messages.add("${pr.prWithAnalysis!!.coverage.diffCoverage?.value}% diff coverage")
+        if (pr.prWithAnalysis!!.coverage?.diffCoverage?.cause == "ValueIsPresent") {
+            messages.add("${pr.prWithAnalysis!!.coverage?.diffCoverage?.value}% diff coverage")
         }
-        if (pr.prWithAnalysis!!.coverage.deltaCoverage?.let { it != 0 } == true) {
-            messages.add("${if (pr.prWithAnalysis!!.coverage.deltaCoverage?.let { it > 0 } == true) "+" else ""}${pr.prWithAnalysis!!.coverage.deltaCoverage}% variation")
+        if (pr.prWithAnalysis!!.coverage?.deltaCoverage?.let { it != 0.toDouble() } == true) {
+            messages.add("${if (pr.prWithAnalysis!!.coverage?.deltaCoverage?.let { it > 0 } == true) "+" else ""}${pr.prWithAnalysis!!.coverage?.deltaCoverage}% variation")
         }
         val text = if (messages.isNotEmpty()) {
             messages.joinToString(", ")

@@ -61,8 +61,8 @@ class Config : PersistentStateComponent<Config.State> {
     val baseUri: String
         get() = state.baseUri ?: "https://app.codacy.com/api/v3"
 
-    val loginUri: String = "https://arielkosacoff.github.io/codacy-intellij-signin/"
-    //"http://localhost/Bitflow/Codacy/signin"
+    val loginUri: String = "https://app.codacy.com/auth/intellij"
+//    val loginUri: String = "https://arielkosacoff.github.io/codacy-intellij-signin/"
 
     val storedApiToken: String?
         get() = apiToken
