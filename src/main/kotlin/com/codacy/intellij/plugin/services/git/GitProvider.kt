@@ -5,16 +5,14 @@ import com.intellij.openapi.project.Project
 import git4idea.GitUtil
 import git4idea.branch.GitBranchUtil
 import git4idea.repo.GitRepository
-import com.intellij.openapi.project.ProjectManager
 
 @Service
 class GitProvider{
 
     companion object {
 
-        fun getRepository(): GitRepository? {
-            val currentProject: Project = ProjectManager.getInstance().openProjects.firstOrNull() ?: return null
-            return GitUtil.getRepositoryManager(currentProject).repositories.firstOrNull()
+        fun getRepository(project: Project): GitRepository? {
+            return GitUtil.getRepositoryManager(project).repositories.firstOrNull()
         }
 
         fun getHeadCommitSHA(project: Project): String? {

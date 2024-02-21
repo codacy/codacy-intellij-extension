@@ -213,7 +213,7 @@ class RepositoryManager(private val project: Project) {
     fun notifyDidChangeConfig() {
 //        TODO: do I need to check the repository? if yes, remove clear()
         clear()
-        val gitRepository: GitRepository? = GitProvider.getRepository()
+        val gitRepository: GitRepository? = GitProvider.getRepository(project)
         if (gitRepository != null && currentRepository != gitRepository) {
             CoroutineScope(Dispatchers.Default).launch {
                 open(gitRepository)

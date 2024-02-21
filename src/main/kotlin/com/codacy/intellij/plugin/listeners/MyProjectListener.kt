@@ -13,7 +13,7 @@ import kotlinx.coroutines.*
 class MyStartupActivity : StartupActivity {
     @OptIn(DelicateCoroutinesApi::class)
     override fun runActivity(project: Project) {
-        val gitRepository: GitRepository? = GitProvider.getRepository()
+        val gitRepository: GitRepository? = GitProvider.getRepository(project)
         val repositoryManager = project.service<RepositoryManager>()
         if (gitRepository != null && repositoryManager.currentRepository != gitRepository)
             GlobalScope.launch { repositoryManager.open(gitRepository) }
