@@ -88,7 +88,6 @@ class Api {
     }
 
     suspend fun listPullRequestFiles(provider: String, remoteOrganizationName: String, repositoryName: String, pullRequestNumber: Int, cursor: String): ListPullRequestFilesResponse {
-//        TODO: need filter=withCoverageChanges&?
         val endpointUrl = "analysis/organizations/$provider/$remoteOrganizationName/repositories/$repositoryName/pull-requests/$pullRequestNumber/files?limit=100&cursor=$cursor"
         return makeRequest(endpointUrl, ListPullRequestFilesResponse::class.java)
     }
