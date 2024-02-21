@@ -10,7 +10,7 @@ data class GetRepositoryPullRequestResponse(
     val deltaClonesCount: Int,
     val deltaCoverageWithDecimals: Double,
     val deltaCoverage: Int,
-    val diffCoverage: Int,
+    val diffCoverage: Double,
     val coverage: CoverageDetails?,
     val quality: QualityDetails,
     val meta: MetaInfo
@@ -44,7 +44,7 @@ data class CoverageDetails(
 )
 
 data class DiffCoverage(
-    val value: Int,
+    val value: Double,
     val coveredLines: Int,
     val coverableLines: Int,
     val cause: String
