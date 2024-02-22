@@ -18,6 +18,7 @@ class CodacyInspection : LocalInspectionTool() {
 
     override fun checkFile(file: PsiFile, manager: InspectionManager, isOnTheFly: Boolean): Array<ProblemDescriptor>? {
 //        TODO: merge with JAVA inspection
+        println("Checking file: ${file.name}, Language: ${file.language}")
         val problemsHolder = ProblemsHolder(manager, file, isOnTheFly)
         val project = file.project
         val repositoryManager = project.service<RepositoryManager>()
