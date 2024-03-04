@@ -16,7 +16,7 @@ object GitRemoteParser {
     )
 
     fun parseGitRemote(remoteUrl: String): GitRemoteInfo {
-        val pattern = Pattern.compile("^.*(github|gitlab|bitbucket)\\.(?:com|org)[:|/](.+?)/(.+?)\\.git$")
+        val pattern = Pattern.compile("^.*(github|gitlab|bitbucket)\\.(?:com|org)[:|/](.+?)/(.+?)(\\.git)?$")
         val matcher = pattern.matcher(remoteUrl)
 
         if (!matcher.matches()) {
