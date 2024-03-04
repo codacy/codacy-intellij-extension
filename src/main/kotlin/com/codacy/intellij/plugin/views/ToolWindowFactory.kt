@@ -18,6 +18,7 @@ import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
+import com.intellij.ui.AnimatedIcon
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.content.ContentFactory
 import com.intellij.ui.treeStructure.Tree
@@ -226,6 +227,11 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
     }
 
     private fun getInformationNodes(rootNode: DefaultMutableTreeNode, pr: PullRequest) {
+        var loadingIcon = AnimatedIcon(
+            250,
+            AllIcons.Actions.Refresh,
+            RotatedIcon(AllIcons.Actions.Refresh, -90.0)
+        )
         var nodeContent = NodeContent(
             text = when {
                 pr.prWithAnalysis?.isAnalysing == true -> "Analyzing..."
@@ -234,7 +240,7 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
                 else -> "Not analysed."
             },
             icon = when {
-                pr.prWithAnalysis?.isAnalysing == true -> AllIcons.General.Ellipsis
+                pr.prWithAnalysis?.isAnalysing == true -> loadingIcon
                 pr.prWithAnalysis?.isUpToStandards == true -> AllIcons.General.InspectionsOK
                 pr.prWithAnalysis?.isUpToStandards == false -> AllIcons.General.BalloonError
                 else -> AllIcons.General.BalloonInformation
