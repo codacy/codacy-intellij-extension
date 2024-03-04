@@ -60,7 +60,7 @@ class Api {
         }
     }
 
-//    TODO: check unused endpoints
+//    TODO: remove unused endpoints
 
 //    suspend fun getRepositoryWithAnalysis(provider: String, remoteOrganizationName: String, repositoryName: String): GetRepositoryWithAnalysisResponse {
 //        val endpointUrl = "analysis/organizations/$provider/$remoteOrganizationName/repositories/$repositoryName"
