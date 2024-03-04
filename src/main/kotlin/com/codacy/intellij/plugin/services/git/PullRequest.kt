@@ -7,10 +7,16 @@ import com.codacy.intellij.plugin.services.git.RepositoryManager.RepositoryManag
 import kotlinx.coroutines.*
 import com.intellij.notification.*
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindowManager
+import com.intellij.psi.PsiDocumentManager
+import com.intellij.psi.PsiManager
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.command.CommandProcessor
+import com.intellij.openapi.editor.Document
 
 const val MAX_IN_MEMORY_ITEMS: Int = 300
 const val PR_REFRESH_TIME: Long = 1 * 60 * 1000
@@ -147,6 +153,41 @@ class PullRequest(
         ToolWindowManager.getInstance(project).getToolWindow("Codacy")?.activate(null)
     }
 
+    fun refreshFilesWithTrick(project: Project) {
+        ApplicationManager.getApplication().invokeLater {
+            ApplicationManager.getApplication().runReadAction {
+                val fileEditorManager = FileEditorManager.getInstance(project)
+                val files = fileEditorManager.selectedFiles
+                val psiManager = PsiManager.getInstance(project)
+                files.forEach { virtualFile ->
+                    val psiFile = psiManager.findFile(virtualFile)
+                    val document = PsiDocumentManager.getInstance(project).getDocument(psiFile ?: return@forEach)
+                    document?.let { doc ->
+                        insertAndRemoveSpace(project, doc)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun insertAndRemoveSpace(project: Project, document: Document) {
+        val caretModel = FileEditorManager.getInstance(project).selectedTextEditor?.caretModel ?: return
+        val offset = caretModel.offset
+
+        ApplicationManager.getApplication().runWriteAction {
+            CommandProcessor.getInstance().runUndoTransparentAction {
+                if (document.textLength >= offset) {
+                    document.insertString(offset, "-")
+                    PsiDocumentManager.getInstance(project).commitDocument(document)
+
+                    // Remove the inserted space immediately to revert back to the original state
+                    document.deleteString(offset, offset + 1)
+                    PsiDocumentManager.getInstance(project).commitDocument(document)
+                }
+            }
+        }
+    }
+
     @OptIn(DelicateCoroutinesApi::class)
     fun refresh(avoidMetadataFetch: Boolean = false) {
         ProgressManager.getInstance().run(object: Task.Backgroundable(project, "Refreshing pull request", false) {
@@ -159,6 +200,9 @@ class PullRequest(
                     fetchQualityGates()
                     fetchIssues()
                     fetchFiles()
+
+                    // TODO: see if there is a better option. The suggested one -DaemonCodeAnalyzer.getInstance(project).restart(psiFile)-is not working
+                    refreshFilesWithTrick(project)
 
                     repositoryManager!!.notifyDidUpdatePullRequest()
 
