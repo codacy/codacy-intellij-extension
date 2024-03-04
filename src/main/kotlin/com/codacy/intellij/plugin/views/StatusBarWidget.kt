@@ -16,6 +16,7 @@ import com.intellij.openapi.wm.StatusBarWidget
 import com.intellij.openapi.wm.StatusBarWidget.*
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.openapi.wm.impl.status.EditorBasedWidget
+import com.intellij.ui.AnimatedIcon
 import com.intellij.util.Alarm
 import com.intellij.util.Consumer
 import com.intellij.util.concurrency.annotations.RequiresEdt
@@ -23,6 +24,26 @@ import com.intellij.util.concurrency.annotations.RequiresReadLock
 import com.intellij.util.ui.UIUtil
 import java.awt.event.MouseEvent
 import javax.swing.Icon
+import java.awt.Component
+import java.awt.Graphics
+import java.awt.Graphics2D
+
+class RotatedIcon(private val icon: Icon, private val angle: Double) : Icon {
+    override fun getIconWidth(): Int = icon.iconHeight  // Swap dimensions for 90 or 270 degrees
+
+    override fun getIconHeight(): Int = icon.iconWidth  // Swap dimensions for 90 or 270 degrees
+
+    override fun paintIcon(c: Component?, g: Graphics?, x: Int, y: Int) {
+        val g2 = g as Graphics2D
+
+        val centerX = x + icon.iconWidth / 2.0
+        val centerY = y + icon.iconHeight / 2.0
+
+        g2.rotate(Math.toRadians(angle), centerX, centerY)
+        icon.paintIcon(c, g2, x, y)
+        g2.rotate(-Math.toRadians(angle), centerX, centerY)  // Reset rotation for other icons
+    }
+}
 
 @Suppress("UnstableApiUsage")
 class CodacyStatusBarWidget (
@@ -143,8 +164,13 @@ class CodacyStatusBarWidget (
 
     override fun getIcon(): Icon? {
         val pr = repositoryManager.pullRequest?.prWithAnalysis ?: return null
+        val loadingIcon = AnimatedIcon(
+            250,
+            AllIcons.Actions.Refresh,
+            RotatedIcon(AllIcons.Actions.Refresh, -90.0)
+        )
         return when {
-            pr.isAnalysing -> AllIcons.General.Ellipsis
+            pr.isAnalysing -> loadingIcon
             pr.isUpToStandards == true -> AllIcons.General.InspectionsOK
             pr.isUpToStandards == false -> AllIcons.General.BalloonError
             else -> AllIcons.General.BalloonInformation
