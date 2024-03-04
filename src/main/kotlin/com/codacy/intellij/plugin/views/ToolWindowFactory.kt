@@ -21,18 +21,21 @@ import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.content.ContentFactory
 import com.intellij.ui.treeStructure.Tree
+import com.sun.net.httpserver.HttpServer
 import java.awt.BorderLayout
 import java.awt.Component
+import java.awt.FlowLayout
+import java.awt.event.ActionEvent
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.io.File
-import javax.swing.tree.DefaultMutableTreeNode
-import javax.swing.tree.DefaultTreeCellRenderer
-import javax.swing.tree.DefaultTreeModel
-import com.sun.net.httpserver.HttpServer
 import java.net.InetSocketAddress
 import java.net.URLEncoder
 import javax.swing.*
+import javax.swing.tree.DefaultMutableTreeNode
+import javax.swing.tree.DefaultTreeCellRenderer
+import javax.swing.tree.DefaultTreeModel
+
 
 data class NodeContent(
     val text: String,
@@ -105,11 +108,28 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
         toolWindow.setIcon(IconUtils.CodacyIcon)
         val panel = JPanel(BorderLayout())
 
+
+        val buttonsPanel = JPanel(FlowLayout(FlowLayout.LEFT))
+
         val signInButton = JButton("Sign in")
         signInButton.addActionListener {
             startLocalHttpServer(project, toolWindow)
         }
-        panel.add(signInButton, BorderLayout.NORTH)
+        buttonsPanel.add(signInButton, BorderLayout.NORTH)
+
+        val initConfigButton = JButton("Reload token")
+        initConfigButton.addActionListener { e: ActionEvent? ->
+            val configService: Config = service()
+            configService.init()
+            SwingUtilities.invokeLater {
+                val repositoryManager = project.service<RepositoryManager>()
+                repositoryManager.notifyDidChangeConfig()
+                updateToolWindowContent(project, toolWindow)
+            }
+        }
+        buttonsPanel.add(initConfigButton, BorderLayout.NORTH)
+
+        panel.add(buttonsPanel, BorderLayout.NORTH)
 
         val nodeContent = NodeContent(
             text = "Codacy",
