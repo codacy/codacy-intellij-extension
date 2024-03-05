@@ -12,8 +12,24 @@ import java.awt.Toolkit
 import java.net.URI
 import javax.swing.Action
 
-class HtmlDialog(project: Project?, private val htmlContent: String) : DialogWrapper(project) {
+class HtmlDialog(project: Project?, private var htmlContent: String) : DialogWrapper(project) {
     init {
+        val styledHtmlContent = """
+            <html>
+            <head>
+                <style>
+                body {
+                    font-family: 'Sans-Serif';
+                    padding: 10px;
+                }
+                </style>
+            </head>
+            <body>
+                $htmlContent
+            </body>
+            </html>
+        """.trimIndent()
+        this.htmlContent = styledHtmlContent
         init()
         title = "Issue Details"
     }
