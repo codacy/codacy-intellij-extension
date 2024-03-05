@@ -417,7 +417,7 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
         }
         var nodeContent = NodeContent(
             text = text,
-            icon = AllIcons.Actions.Copy,
+            icon = AllIcons.RunConfigurations.TrackCoverage,
         )
         val parentNode = DefaultMutableTreeNode(nodeContent)
         rootNode.add(parentNode)
