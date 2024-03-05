@@ -1,6 +1,7 @@
 package com.codacy.intellij.plugin.listeners
 
 import com.codacy.intellij.plugin.services.api.Api
+import com.codacy.intellij.plugin.services.common.IconUtils
 import com.codacy.intellij.plugin.services.git.GitProvider
 import com.codacy.intellij.plugin.services.git.RepositoryManager
 import com.intellij.openapi.components.service
@@ -13,6 +14,7 @@ import kotlinx.coroutines.*
 class MyStartupActivity : StartupActivity {
     @OptIn(DelicateCoroutinesApi::class)
     override fun runActivity(project: Project) {
+        val preload = IconUtils.CodacyIcon
         val gitRepository: GitRepository? = GitProvider.getRepository(project)
         val repositoryManager = project.service<RepositoryManager>()
         if (gitRepository != null && repositoryManager.currentRepository != gitRepository)

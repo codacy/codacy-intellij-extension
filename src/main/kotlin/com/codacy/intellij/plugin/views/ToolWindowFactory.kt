@@ -107,6 +107,9 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
     private fun updateToolWindowContent(project: Project, toolWindow: ToolWindow) {
         toolWindow.contentManager.removeAllContents(true)
         toolWindow.setIcon(IconUtils.CodacyIcon)
+        ApplicationManager.getApplication().invokeLater {
+            toolWindow.setIcon(IconUtils.CodacyIcon)
+        }
         val panel = JPanel(BorderLayout())
 
 
