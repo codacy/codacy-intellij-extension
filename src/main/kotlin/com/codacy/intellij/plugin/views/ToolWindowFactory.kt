@@ -505,12 +505,12 @@ class CustomIconTreeCellRenderer : DefaultTreeCellRenderer() {
         hasFocus: Boolean
     ): Component {
         super.getTreeCellRendererComponent(tree, value, selected, expanded, leaf, row, hasFocus)
-
-        if (value is DefaultMutableTreeNode) {
-            icon = (value.userObject as NodeContent).icon
-            toolTipText = (value.userObject as NodeContent).tooltip
+        if (value is DefaultMutableTreeNode && value.userObject is NodeContent) {
+            val nodeContent = value.userObject as NodeContent
+            icon = nodeContent.icon
+            toolTipText = nodeContent.tooltip
         }
-
+        if (!selected) backgroundNonSelectionColor = UIManager.getColor("Panel.background")
         return this
     }
 }
