@@ -1,0 +1,27 @@
+<idea-plugin>
+    <id>com.codacy.intellij.plugin</id>
+    <name>Codacy</name>
+    <vendor>Codacy</vendor>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.java</depends>
+    <depends>Git4Idea</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="Codacy" anchor="left" factoryClass="com.codacy.intellij.plugin.views.CodacyPullRequestSummaryToolWindowFactory" canCloseContents="true" />
+        <localInspection
+                groupPath="Codacy"
+                groupBundle="messages.InspectionsBundle"
+                groupKey="group.names.probable.bugs"
+                enabledByDefault="true"
+                implementationClass="com.codacy.intellij.plugin.views.CodacyInspection"
+                displayName="Codacy inspection"
+                shortName="Codacy"
+                level="ERROR"
+                runForWholeFile="true"/>
+        <notificationGroup id="CodacyNotifications" displayType="BALLOON" toolWindowId="Codacy" />
+        <statusBarWidgetFactory implementation="com.codacy.intellij.plugin.views.CodacyStatusBarWidgetFactory" id="com.codacy.intellij.plugin.CodacyStatusBarWidget"/>
+        <postStartupActivity implementation="com.codacy.intellij.plugin.listeners.MyStartupActivity"/>
+    </extensions>
+
+</idea-plugin>
