@@ -17,10 +17,10 @@ class HtmlDialog(project: Project?, private var htmlContent: String) : DialogWra
         val styledHtmlContent = """
             <html>
             <head>
+                <link rel="stylesheet" type="text/css" href="https://raw.githubusercontent.com/jasonm23/markdown-css-themes/gh-pages/markdown7.css">
                 <style>
                 body {
-                    font-family: 'Sans-Serif';
-                    padding: 10px;
+                    color: #333;
                 }
                 </style>
             </head>
