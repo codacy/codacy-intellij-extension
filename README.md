@@ -1,7 +1,7 @@
 [//]: # (TODO: technical writers)
 # Codacy IntelliJ IDEA Extension
 
-The Codacy extension for IntelliJ IDEA helps you review and manage the issues found by Codacy directly within Visual Studio Code. It notifies you whether a pull request is up to standards by highlighting problematic code patterns and displaying code quality metrics.
+The Codacy extension for IntelliJ IDEA helps you review and manage the issues found by Codacy directly within the IntelliJ IDE. It notifies you whether a pull request is up to standards by highlighting problematic code patterns and displaying code quality metrics.
 
 ![Codacy IntelliJ IDEA Extension Screenshot](https://github.com/codacy/codacy-intellij-extension/raw/HEAD/.readme/screenshot-01.png)
 
