@@ -1,5 +1,5 @@
 <idea-plugin>
-    <id>com.codacy.intellij.plugin</id>
+    <id>com.codacy.plugin</id>
     <name>Codacy</name>
     <vendor>Codacy</vendor>
 
