@@ -62,6 +62,6 @@ If you see this error, confirm that the repository has been [added to Codacy Clo
 
 <!-- Plugin description -->
 
-The Codacy extension for IntelliJ IDEA helps you review and manage the issues found by Codacy directly within Visual Studio Code. It notifies you whether a pull request is up to standards by highlighting problematic code patterns and displaying code quality metrics.
+The Codacy extension for IntelliJ IDEA helps you review and manage the issues found by Codacy directly within IntelliJ IDEA. It notifies you whether a pull request is up to standards by highlighting problematic code patterns and displaying code quality metrics.
 
 <!-- Plugin description end -->
