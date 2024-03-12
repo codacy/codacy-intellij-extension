@@ -1,6 +1,6 @@
 # Codacy IntelliJ IDEA Extension
 
-The Codacy extension for IntelliJ IDEA helps you review and manage the issues found by Codacy directly within the IntelliJ IDE. It notifies you whether a pull request is up to standards by highlighting problematic code patterns and displaying code quality metrics.
+The Codacy extension for IntelliJ IDEs helps you review and manage the issues found by Codacy directly within IntelliJ IDEs. It notifies you whether a pull request is up to standards by highlighting problematic code patterns and displaying code quality metrics.
 
 ![Codacy IntelliJ IDEA Extension Screenshot](https://github.com/codacy/codacy-intellij-extension/raw/HEAD/.readme/screenshot-01.png)
 
@@ -15,7 +15,6 @@ Before installing the extension, make sure you meet the following requirements:
 1.  You have a [Codacy account](https://www.codacy.com/signup-codacy).
 2.  The repository you’re working on has been [added to Codacy Cloud](https://docs.codacy.com/organizations/managing-repositories/#adding-a-repository).
 3.  You have at least [Repository Read permissions](https://docs.codacy.com/organizations/roles-and-permissions-for-organizations/) for the repository you’re working on.
-4.  You're using IntelliJ IDEA version 2023.3.3 or later.
 
 ## Installation
 
