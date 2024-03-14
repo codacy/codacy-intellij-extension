@@ -1,4 +1,4 @@
-package com.codacy.intellij.plugin.services.common
+package com.codacy.plugin.services.common
 
 import com.intellij.openapi.components.service
 import com.intellij.credentialStore.CredentialAttributes

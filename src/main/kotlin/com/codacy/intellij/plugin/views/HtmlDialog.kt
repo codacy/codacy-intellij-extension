@@ -1,4 +1,4 @@
-package com.codacy.intellij.plugin.views
+package com.codacy.plugin.views
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper

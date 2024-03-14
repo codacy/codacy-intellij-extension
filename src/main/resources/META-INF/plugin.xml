@@ -8,20 +8,11 @@
     <depends>Git4Idea</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow id="Codacy" anchor="left" factoryClass="com.codacy.intellij.plugin.views.CodacyPullRequestSummaryToolWindowFactory" canCloseContents="true" />
-        <localInspection
-                groupPath="Codacy"
-                groupBundle="messages.InspectionsBundle"
-                groupKey="group.names.probable.bugs"
-                enabledByDefault="true"
-                implementationClass="com.codacy.intellij.plugin.views.CodacyInspection"
-                displayName="Codacy inspection"
-                shortName="Codacy"
-                level="ERROR"
-                runForWholeFile="true"/>
+        <toolWindow id="Codacy" anchor="left" factoryClass="com.codacy.plugin.views.CodacyPullRequestSummaryToolWindowFactory" canCloseContents="true" />
+        <localInspection groupPath="Codacy" groupBundle="messages.InspectionsBundle" groupKey="group.names.probable.bugs" enabledByDefault="true" implementationClass="com.codacy.plugin.views.CodacyInspection" displayName="Codacy inspection" shortName="Codacy" level="ERROR" runForWholeFile="true"/>
         <notificationGroup id="CodacyNotifications" displayType="BALLOON" toolWindowId="Codacy" />
-        <statusBarWidgetFactory implementation="com.codacy.intellij.plugin.views.CodacyStatusBarWidgetFactory" id="com.codacy.intellij.plugin.CodacyStatusBarWidget"/>
-        <postStartupActivity implementation="com.codacy.intellij.plugin.listeners.MyStartupActivity"/>
+        <statusBarWidgetFactory implementation="com.codacy.plugin.views.CodacyStatusBarWidgetFactory" id="com.codacy.plugin.CodacyStatusBarWidget"/>
+        <postStartupActivity implementation="com.codacy.plugin.listeners.MyStartupActivity"/>
     </extensions>
 
 </idea-plugin>

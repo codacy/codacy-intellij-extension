@@ -1,4 +1,4 @@
-package com.codacy.intellij.plugin.services.api.models
+package com.codacy.plugin.services.api.models
 
 data class ListToolsResponse(
     val data: List<ToolDetails>,

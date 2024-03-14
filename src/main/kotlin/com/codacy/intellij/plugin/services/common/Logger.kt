@@ -1,4 +1,4 @@
-package com.codacy.intellij.plugin.services.common
+package com.codacy.plugin.services.common
 
 import com.intellij.openapi.diagnostic.Logger as IntelliJLogger
 

@@ -1,6 +1,6 @@
-package com.codacy.intellij.plugin.views
+package com.codacy.plugin.views
 
-import com.codacy.intellij.plugin.services.git.RepositoryManager
+import com.codacy.plugin.services.git.RepositoryManager
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.service
@@ -52,7 +52,7 @@ class CodacyStatusBarWidget (
     EditorBasedWidget(project), MultipleTextValuesPresentation, Multiframe {
 
     override fun ID(): String {
-        return "com.codacy.intellij.plugin.CodacyStatusBarWidget"
+        return "com.codacy.plugin.CodacyStatusBarWidget"
     }
 
     private val repositoryManager = project.service<RepositoryManager>()

@@ -1,8 +1,8 @@
-package com.codacy.intellij.plugin.services.git
+package com.codacy.plugin.services.git
 
-import com.codacy.intellij.plugin.services.api.Api
-import com.codacy.intellij.plugin.services.api.models.*
-import com.codacy.intellij.plugin.services.common.*
+import com.codacy.plugin.services.api.Api
+import com.codacy.plugin.services.api.models.*
+import com.codacy.plugin.services.common.*
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service

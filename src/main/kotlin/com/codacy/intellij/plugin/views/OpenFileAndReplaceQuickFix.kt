@@ -1,4 +1,4 @@
-package com.codacy.intellij.plugin.views
+package com.codacy.plugin.views
 
 import com.intellij.codeInspection.LocalQuickFix
 import com.intellij.codeInspection.ProblemDescriptor
