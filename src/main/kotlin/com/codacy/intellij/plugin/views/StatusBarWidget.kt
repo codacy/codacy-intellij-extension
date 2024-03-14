@@ -176,9 +176,7 @@ class CodacyStatusBarWidget (
             else -> AllIcons.General.BalloonInformation
         }
     }
-    @Deprecated("Deprecated in Java")
-    override fun getClickConsumer(): Consumer<MouseEvent> {
-//        TODO: fix
+    override fun getClickConsumer(): Consumer<MouseEvent>? {
         return Consumer {
             ToolWindowManager.getInstance(project).getToolWindow("Codacy")?.activate(null)
         }
