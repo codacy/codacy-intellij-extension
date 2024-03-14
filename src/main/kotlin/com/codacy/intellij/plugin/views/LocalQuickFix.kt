@@ -1,7 +1,7 @@
-package com.codacy.plugin.views
+package com.codacy.intellij.plugin.views
 
-import com.codacy.plugin.services.api.Api
-import com.codacy.plugin.services.api.models.IssueDetails
+import com.codacy.intellij.plugin.services.api.Api
+import com.codacy.intellij.plugin.services.api.models.IssueDetails
 import com.intellij.codeInspection.LocalQuickFix
 import com.intellij.codeInspection.ProblemDescriptor
 import com.intellij.openapi.application.ApplicationManager

@@ -1,8 +1,8 @@
-package com.codacy.plugin.services.api
+package com.codacy.intellij.plugin.services.api
 
-import com.codacy.plugin.services.api.models.*
-import com.codacy.plugin.services.common.Config
-import com.codacy.plugin.services.common.Logger
+import com.codacy.intellij.plugin.services.api.models.*
+import com.codacy.intellij.plugin.services.common.Config
+import com.codacy.intellij.plugin.services.common.Logger
 import com.google.gson.Gson
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service

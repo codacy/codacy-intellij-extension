@@ -1,9 +1,9 @@
-package com.codacy.plugin.listeners
+package com.codacy.intellij.plugin.listeners
 
-import com.codacy.plugin.services.api.Api
-import com.codacy.plugin.services.common.IconUtils
-import com.codacy.plugin.services.git.GitProvider
-import com.codacy.plugin.services.git.RepositoryManager
+import com.codacy.intellij.plugin.services.api.Api
+import com.codacy.intellij.plugin.services.common.IconUtils
+import com.codacy.intellij.plugin.services.git.GitProvider
+import com.codacy.intellij.plugin.services.git.RepositoryManager
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.StartupActivity

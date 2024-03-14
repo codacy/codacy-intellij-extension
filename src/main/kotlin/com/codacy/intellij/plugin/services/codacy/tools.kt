@@ -1,5 +1,5 @@
-import com.codacy.plugin.services.api.Api
-import com.codacy.plugin.services.api.models.ToolDetails
+import com.codacy.intellij.plugin.services.api.Api
+import com.codacy.intellij.plugin.services.api.models.ToolDetails
 
 object Tools {
     private var all: List<ToolDetails>? = null

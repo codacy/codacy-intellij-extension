@@ -1,4 +1,4 @@
-package com.codacy.plugin.services.git
+package com.codacy.intellij.plugin.services.git
 
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project

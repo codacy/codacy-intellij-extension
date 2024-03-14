@@ -1,4 +1,4 @@
-package com.codacy.plugin.services.common
+package com.codacy.intellij.plugin.services.common
 
 import java.util.regex.Pattern
 

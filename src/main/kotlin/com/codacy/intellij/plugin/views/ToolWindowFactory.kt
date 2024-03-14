@@ -1,11 +1,11 @@
-package com.codacy.plugin.views
+package com.codacy.intellij.plugin.views
 
-import com.codacy.plugin.services.api.models.IssueThreshold
-import com.codacy.plugin.services.common.Config
-import com.codacy.plugin.services.common.IconUtils
-import com.codacy.plugin.services.common.TimeoutManager
-import com.codacy.plugin.services.git.PullRequest
-import com.codacy.plugin.services.git.RepositoryManager
+import com.codacy.intellij.plugin.services.api.models.IssueThreshold
+import com.codacy.intellij.plugin.services.common.Config
+import com.codacy.intellij.plugin.services.common.IconUtils
+import com.codacy.intellij.plugin.services.common.TimeoutManager
+import com.codacy.intellij.plugin.services.git.PullRequest
+import com.codacy.intellij.plugin.services.git.RepositoryManager
 import com.intellij.icons.AllIcons
 import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.Disposable

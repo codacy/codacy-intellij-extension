@@ -1,8 +1,8 @@
 
-package com.codacy.plugin.views
+package com.codacy.intellij.plugin.views
 
-import com.codacy.plugin.services.git.PullRequest
-import com.codacy.plugin.services.git.RepositoryManager
+import com.codacy.intellij.plugin.services.git.PullRequest
+import com.codacy.intellij.plugin.services.git.RepositoryManager
 import com.intellij.codeInspection.*
 import com.intellij.psi.*
 import com.intellij.openapi.components.service

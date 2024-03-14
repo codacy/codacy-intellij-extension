@@ -1,4 +1,4 @@
-package com.codacy.plugin.services.common
+package com.codacy.intellij.plugin.services.common
 
 import com.intellij.openapi.util.IconLoader
 import javax.swing.Icon

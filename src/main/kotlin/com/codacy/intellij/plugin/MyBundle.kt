@@ -1,4 +1,4 @@
-package com.codacy.plugin
+package com.codacy.intellij.plugin
 
 import com.intellij.DynamicBundle
 import org.jetbrains.annotations.NonNls

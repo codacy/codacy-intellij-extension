@@ -1,4 +1,4 @@
-package com.codacy.plugin.views
+package com.codacy.intellij.plugin.views
 
 import com.intellij.openapi.wm.StatusBar
 import com.intellij.openapi.wm.StatusBarWidget
@@ -7,7 +7,7 @@ import com.intellij.openapi.project.Project
 
 class CodacyStatusBarWidgetFactory : StatusBarWidgetFactory {
     override fun getId(): String {
-        return "com.codacy.plugin.CodacyStatusBarWidget"
+        return "com.codacy.intellij.plugin.CodacyStatusBarWidget"
     }
 
     override fun getDisplayName(): String {
