@@ -58,7 +58,7 @@ data class ResultReason(
 )
 
 data class ExpectedThreshold(
-    val threshold: Int,
+    val threshold: Double,
     val minimumSeverity: String
 )
 
