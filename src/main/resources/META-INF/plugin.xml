@@ -4,8 +4,10 @@
     <vendor>Codacy</vendor>
 
     <depends>com.intellij.modules.platform</depends>
-    <depends>com.intellij.modules.java</depends>
     <depends>Git4Idea</depends>
+
+    <depends optional="true" config-file="plugin-withJava.xml">com.intellij.modules.java</depends>
+    <depends optional="true" config-file="plugin-withJavaScript.xml">JavaScript</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow id="Codacy" anchor="left" factoryClass="com.codacy.intellij.plugin.views.CodacyPullRequestSummaryToolWindowFactory" canCloseContents="true" />
@@ -14,5 +16,4 @@
         <statusBarWidgetFactory implementation="com.codacy.intellij.plugin.views.CodacyStatusBarWidgetFactory" id="com.codacy.intellij.plugin.CodacyStatusBarWidget"/>
         <postStartupActivity implementation="com.codacy.intellij.plugin.listeners.MyStartupActivity"/>
     </extensions>
-
 </idea-plugin>
