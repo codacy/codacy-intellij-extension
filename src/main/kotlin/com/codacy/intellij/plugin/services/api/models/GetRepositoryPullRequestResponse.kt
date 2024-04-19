@@ -52,7 +52,7 @@ data class DiffCoverage(
 
 data class ResultReason(
     val gate: String,
-    val expected: Int,
+    val expected: Double,
     val expectedThreshold: ExpectedThreshold,
     val isUpToStandards: Boolean
 )
