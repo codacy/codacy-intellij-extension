@@ -6,4 +6,4 @@
 
 ### Added
 
-- Support for 2024.2 products
+- Support for 2024.3 products
