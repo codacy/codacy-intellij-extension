@@ -6,4 +6,4 @@
 
 ### Added
 
-- Support for 2024.3 products
+- Fixed an issue where repositories using groups/subgroups would not get properly parsed.
