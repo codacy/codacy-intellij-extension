@@ -25,8 +25,7 @@ object GitRemoteParser {
 
         val providerName = matcher.group(1)
         val organization = matcher.group(2)
-        val repository = matcher.group(3)
-
+        val repository = matcher.group(3).substringAfterLast("/") // Remove any leading path in cases such as Gitlabs subgroups, or default to the repository name
         val provider = validProviders[providerName] ?: throw IllegalArgumentException("Invalid provider: $providerName")
 
         return GitRemoteInfo(provider, organization, repository)
