@@ -6,4 +6,4 @@
 
 ### Added
 
-- Fixed an issue where repositories using groups/subgroups would not get properly parsed.
+- Added support to 2025.* versions of JetBrains IDEs.
