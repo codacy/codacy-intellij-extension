@@ -15,6 +15,14 @@ class Config : PersistentStateComponent<Config.State> {
     private var state = State()
     private var apiToken: String? = null
 
+    //TODO
+    class CodacyCli() {
+        var cliVersion: String? = null
+
+    }
+    var mySetting = "hello world"
+
+
     companion object {
         private val log = Logger
 
