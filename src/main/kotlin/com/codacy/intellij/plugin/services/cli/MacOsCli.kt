@@ -3,6 +3,7 @@ package com.codacy.intellij.plugin.services.cli
 import com.codacy.intellij.plugin.services.common.Config
 import com.codacy.intellij.plugin.services.common.Config.Companion.CLI_SHELL_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_DOWNLOAD_LINK
+import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_V2_VERSION_ENV_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_FOLDER_NAME
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
@@ -30,23 +31,33 @@ class MacOsCli(provider: String, organization: String, repository: String, proje
         val fullPath = Paths.get(project.basePath, CODACY_FOLDER_NAME, CLI_SHELL_NAME).toAbsolutePath()
 
         // check if .codacy/cli.sh exists
-        if (fullPath.exists()) {
-            cliCommand = if (config.cliVersion.isBlank()) {
-                localPath.toString()
-            } else {
-                "CODACY_CLI_V2_VERSION=${config.cliVersion} $localPath"
+//        if (fullPath.exists()) {
+//            cliCommand = if (config.cliVersion.isBlank()) {
+//                localPath.toString()
+//            } else {
+//                "CODACY_CLI_V2_VERSION=${config.cliVersion} $localPath"
+//            }
+//            return
+//        }
+
+        //TODO new approach, env will be separate
+        // still not exactly happy about it
+        if(fullPath.exists()) {
+            config.state.cliCommand = localPath.toString()
+            if(config.cliVersion.isNotBlank()) {
+                //TODO i might not need this anymore
+//                cliVersion = "$CODACY_CLI_V2_VERSION_ENV_NAME=${config.cliVersion}"
             }
-            return
         }
+
 
         NotificationGroupManager.getInstance()
             .getNotificationGroup("CodacyNotifications")
             .createNotification("fullPath: " + fullPath, NotificationType.INFORMATION)
             .notify(project)
 
-        // CLI not found, attempt to install it
         if (autoInstall) {
-            install() //await
+            install()
         }
     }
 
@@ -56,7 +67,7 @@ class MacOsCli(provider: String, organization: String, repository: String, proje
             .createNotification("preflight", NotificationType.INFORMATION)
             .notify(project)
 
-        if (cliCommand.isBlank()) {
+        if (config.state.cliCommand.isBlank()) {
             NotificationGroupManager.getInstance()
                 .getNotificationGroup("CodacyNotifications")
                 .createNotification("cli is blank", NotificationType.INFORMATION)
@@ -100,15 +111,22 @@ class MacOsCli(provider: String, organization: String, repository: String, proje
                     val execOutputPath = codacyCliPath.toAbsolutePath().toString()
 
                     runBlocking {//TODO make sure this will be okay
-                        curlDownload(execOutputPath, prj)
+                        downloadCodacyCli(execOutputPath, prj)
                     }
                     // const execPath = this.preparePathForExec(codacyCliPath) //TODO this is not used for UNIX but for windows to normialize path
 
-                    cliCommand = if (config.cliVersion.isBlank()) {
-                        execOutputPath
-                    } else {
-                        "CODACY_CLI_V2_VERSION=${config.cliVersion} $execOutputPath"
-                    }
+                    //TODO old approach
+//                    cliCommand = if (config.cliVersion.isBlank()) {
+//                        execOutputPath
+//                    } else {
+//                        "CODACY_CLI_V2_VERSION=${config.cliVersion} $execOutputPath"
+//                    }
+
+                    //TODO new approach, env will be separate
+                    // still not exactly happy about it
+                    //TODO make sure this makes sense
+                    config.state.cliCommand = execOutputPath
+//                    cliVersion = config.cliVersion
 
                     //TODO should really not block it
                     runBlocking {
@@ -122,19 +140,19 @@ class MacOsCli(provider: String, organization: String, repository: String, proje
 
     fun installDependencies() {
 
-        val a2 = cliCommand.split(" ").slice(1 until cliCommand.split(" ").size)
-            .joinToString(" ")
+//        val a2 = cliCommand.split(" ").slice(1 until cliCommand.split(" ").size)
+//            .joinToString(" ")
 
         NotificationGroupManager.getInstance()
             .getNotificationGroup("CodacyNotifications")
-            .createNotification("a2: $a2", NotificationType.INFORMATION)
+            .createNotification("a2: ${config.state.cliCommand}", NotificationType.INFORMATION)
             .notify(project)
 
-        val program = ProcessBuilder(a2, "install")
+        val program = ProcessBuilder(config.state.cliCommand, "install")
             .redirectErrorStream(true)
 
         //TODO work on hardcoded value
-        program.environment()["CODACY_CLI_V2_VERSION"] = "1.0.0-main.349.sha.1b80ceb"
+        program.environment()[CODACY_CLI_V2_VERSION_ENV_NAME] = config.cliVersion
 
         val process = program.start()
 
@@ -229,7 +247,7 @@ class MacOsCli(provider: String, organization: String, repository: String, proje
             try {
                 // initialize codacy-cli
                 //TODO make sure this is correct
-                execAsync("$cliCommand init", initParams) //TODO CLI command to be written
+                execAsync("${config.state.cliCommand} init", initParams) //TODO CLI command to be written
             } catch (error: Exception) {
 
                 NotificationGroupManager.getInstance()
@@ -265,7 +283,7 @@ class MacOsCli(provider: String, organization: String, repository: String, proje
 
     }
 
-    suspend fun curlDownload(outputPath: String, project: Project) {
+    suspend fun downloadCodacyCli(outputPath: String, project: Project) {
         val process = ProcessBuilder("curl", "-Ls", CODACY_CLI_DOWNLOAD_LINK)
             .redirectErrorStream(true)
             .start()

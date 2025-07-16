@@ -1,5 +1,7 @@
 package com.codacy.intellij.plugin.services.cli
 
+import com.codacy.intellij.plugin.services.common.Config
+import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_V2_VERSION_ENV_NAME
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.project.Project
@@ -15,7 +17,9 @@ abstract class CodacyCli(
     val project: Project
 ) {
 
-    var cliCommand: String = ""
+//    var cliCommand: String = ""
+//    var cliVersion: String = ""
+    private val config = Config.instance
 
     companion object {
         private var codacyCli: CodacyCli? = null
@@ -67,8 +71,7 @@ abstract class CodacyCli(
 
     suspend fun execAsync(
         command: String,
-        args: Map<String, String>? = null,
-        cliVersion: String? = null, //TODO might be easier to just pass env here
+        args: Map<String, String>? = null
     ): Result<Pair<String, String>> = withContext(Dispatchers.IO) {
         // Stringify the args
         val argsString = args?.entries
@@ -106,26 +109,25 @@ abstract class CodacyCli(
                 )
                 .notify(project)
 
-            val a1 = cmd.split(" ").get(0)
-            val a2 = cmd.split(" ").slice(1 until cmd.split(" ").size)
+//            val a1 = cmd.split(" ").get(0)
+//            val a2 = cmd.split(" ").slice(1 until cmd.split(" ").size)
 
 
             NotificationGroupManager.getInstance()
                 .getNotificationGroup("CodacyNotifications")
                 .createNotification(
-                    "PRogram to execute: \n$a2",
+                    "PRogram to execute: \n$cmd",
                     NotificationType.INFORMATION
                 )
                 .notify(project)
 
-            val program = ProcessBuilder(a2)
+            val program = ProcessBuilder(cmd.split(" "))
                 .directory(File(rootPath))
                 .redirectErrorStream(false)
-//                .start()
 
 
             //TODO better way to set environment variables
-            program.environment()["CODACY_CLI_V2_VERSION"] = "1.0.0-main.349.sha.1b80ceb"
+            program.environment()[CODACY_CLI_V2_VERSION_ENV_NAME] = config.cliVersion
 
             val process = program.start()
 

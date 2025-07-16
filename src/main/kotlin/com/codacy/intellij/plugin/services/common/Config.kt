@@ -23,6 +23,7 @@ class Config : PersistentStateComponent<Config.State> {
         const val CLI_SHELL_NAME = "cli.sh"
         const val CODACY_FOLDER_NAME: String = ".codacy"
         const val CODACY_CLI_DOWNLOAD_LINK: String = "https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh"
+        const val CODACY_CLI_V2_VERSION_ENV_NAME = "CODACY_CLI_V2_VERSION"
 
 
         private val log = Logger
@@ -33,6 +34,8 @@ class Config : PersistentStateComponent<Config.State> {
 
     data class State(
         var baseUri: String? = null,
+
+        var cliCommand: String = "",
 
         var availableCliVersions: List<String> = listOf(),
         var selectedCliVersion: String = ""
