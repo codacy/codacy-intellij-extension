@@ -1,7 +1,8 @@
 package com.codacy.intellij.plugin.services.cli
 
 import com.codacy.intellij.plugin.services.common.Config
-import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_LINK
+import com.codacy.intellij.plugin.services.common.Config.Companion.CLI_SHELL_NAME
+import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_DOWNLOAD_LINK
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_FOLDER_NAME
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
@@ -14,12 +15,12 @@ import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.nio.file.Paths
 
-class MacOsCli(/*rootPath: String,*/ provider: String, organization: String, repository: String, project: Project) :
-    CodacyCli(/*rootPath,*/ provider, organization, repository, project) {
+class MacOsCli(provider: String, organization: String, repository: String, project: Project) :
+    CodacyCli(provider, organization, repository, project) {
 
-    val config = Config.instance
+    private val config = Config.instance
 
-    var accountToken = config.storedApiToken //TODO make sure if this is a correct token we are talking about
+    var accountToken = config.storedApiToken
 
     //TODO ✅
     suspend fun findCliCommand(project: Project, autoInstall: Boolean = false) {
@@ -61,7 +62,7 @@ class MacOsCli(/*rootPath: String,*/ provider: String, organization: String, rep
                 .createNotification("cli is blank", NotificationType.INFORMATION)
                 .notify(project)
 
-            findCliCommand(project, true /*autoInstall*/) //TODO this null lol
+            findCliCommand(project, autoInstall)
         } else {
             NotificationGroupManager.getInstance()
                 .getNotificationGroup("CodacyNotifications")
@@ -75,7 +76,6 @@ class MacOsCli(/*rootPath: String,*/ provider: String, organization: String, rep
     override suspend fun install() {
         //TODO Set some setting that cli is installing?
 //        await vscode.commands.executeCommand('setContext', 'codacy:cliInstalling', true)
-
 
         val prj = project
 
@@ -100,7 +100,7 @@ class MacOsCli(/*rootPath: String,*/ provider: String, organization: String, rep
                     val execOutputPath = codacyCliPath.toAbsolutePath().toString()
 
                     runBlocking {//TODO make sure this will be okay
-                        curlDownload(CODACY_CLI_LINK, execOutputPath, prj)
+                        curlDownload(execOutputPath, prj)
                     }
                     // const execPath = this.preparePathForExec(codacyCliPath) //TODO this is not used for UNIX but for windows to normialize path
 
@@ -122,6 +122,32 @@ class MacOsCli(/*rootPath: String,*/ provider: String, organization: String, rep
 
     fun installDependencies() {
 
+        val a2 = cliCommand.split(" ").slice(1 until cliCommand.split(" ").size)
+            .joinToString(" ")
+
+        NotificationGroupManager.getInstance()
+            .getNotificationGroup("CodacyNotifications")
+            .createNotification("a2: $a2", NotificationType.INFORMATION)
+            .notify(project)
+
+        val program = ProcessBuilder(a2, "install")
+            .redirectErrorStream(true)
+
+        //TODO work on hardcoded value
+        program.environment()["CODACY_CLI_V2_VERSION"] = "1.0.0-main.349.sha.1b80ceb"
+
+        val process = program.start()
+
+        val exitCode = process.waitFor()
+
+        if (exitCode != 0) {
+            throw RuntimeException("Curl failed with exit code $exitCode")
+        }
+
+        NotificationGroupManager.getInstance()
+            .getNotificationGroup("CodacyNotifications")
+            .createNotification("Dependencies installed successfully", NotificationType.INFORMATION)
+            .notify(project)
     }
 
     fun update() {
@@ -131,7 +157,6 @@ class MacOsCli(/*rootPath: String,*/ provider: String, organization: String, rep
     suspend fun initialize() {
 // Check if the configuration files exist
         //TODO hardcode file names
-        //TODO use project instead of rootPath
 
         //TODO better exception handling
         val rootPath = project.basePath ?: throw RuntimeException("Project base path is not set")
@@ -167,27 +192,21 @@ class MacOsCli(/*rootPath: String,*/ provider: String, organization: String, rep
 
             NotificationGroupManager.getInstance()
                 .getNotificationGroup("CodacyNotifications")
-                .createNotification("whats the api token: ${this.accountToken}",
-                    NotificationType.INFORMATION)
+                .createNotification(
+                    "whats the api token: ${this.accountToken}",
+                    NotificationType.INFORMATION
+                )
                 .notify(project)
-
-
-            //TODO delete, its for testing
-            //TODO
-            //TODO
-            //TODO
-            //TODO
-            //TODO
-            //TODO REMOVE THIS DONT COMMIT IT
-            this.accountToken = ""
 
             NotificationGroupManager.getInstance()
                 .getNotificationGroup("CodacyNotifications")
-                .createNotification("this.accountToken?.isNotBlank() == true = ${this.accountToken?.isNotBlank() == true}" +
-                        "\nthis.repository.isNotBlank() = ${this.repository.isNotBlank()}" +
-                        "\nthis.provider.isNotBlank() = ${this.provider.isNotBlank()}" +
-                        "\nthis.organization.isNotBlank() = ${this.organization.isNotBlank()}",
-                    NotificationType.INFORMATION)
+                .createNotification(
+                    "this.accountToken?.isNotBlank() == true = ${this.accountToken?.isNotBlank() == true}" +
+                            "\nthis.repository.isNotBlank() = ${this.repository.isNotBlank()}" +
+                            "\nthis.provider.isNotBlank() = ${this.provider.isNotBlank()}" +
+                            "\nthis.organization.isNotBlank() = ${this.organization.isNotBlank()}",
+                    NotificationType.INFORMATION
+                )
                 .notify(project)
 
 
@@ -210,13 +229,15 @@ class MacOsCli(/*rootPath: String,*/ provider: String, organization: String, rep
             try {
                 // initialize codacy-cli
                 //TODO make sure this is correct
-                execAsync("${cliCommand} init", initParams) //TODO CLI command to be written
+                execAsync("$cliCommand init", initParams) //TODO CLI command to be written
             } catch (error: Exception) {
 
                 NotificationGroupManager.getInstance()
                     .getNotificationGroup("CodacyNotifications")
-                    .createNotification("error when trying to execAsync, error: $error",
-                        NotificationType.ERROR)
+                    .createNotification(
+                        "error when trying to execAsync, error: $error",
+                        NotificationType.ERROR
+                    )
                     .notify(project)
                 throw RuntimeException("Failed to initialize CLI: $error")
             }
@@ -244,8 +265,8 @@ class MacOsCli(/*rootPath: String,*/ provider: String, organization: String, rep
 
     }
 
-    suspend fun curlDownload(url: String, outputPath: String, project: Project): String {
-        val process = ProcessBuilder("curl", "-Ls", Config.CODACY_CLI_LINK)
+    suspend fun curlDownload(outputPath: String, project: Project) {
+        val process = ProcessBuilder("curl", "-Ls", CODACY_CLI_DOWNLOAD_LINK)
             .redirectErrorStream(true)
             .start()
 
@@ -261,18 +282,15 @@ class MacOsCli(/*rootPath: String,*/ provider: String, organization: String, rep
         outputFile.toFile().writeText(output)
 
         // Give executable permissions to the file
-        val chmodProcess = ProcessBuilder("chmod", "+x", outputFile.toAbsolutePath().toString())
+        ProcessBuilder("chmod", "+x", outputFile.toAbsolutePath().toString())
             .redirectErrorStream(true)
             .start()
-        //TODO check if worked
+            .waitFor()
 
         NotificationGroupManager.getInstance()
             .getNotificationGroup("CodacyNotifications")
             .createNotification("Successfully downloaded script", NotificationType.INFORMATION)
             .notify(project)
-
-//        return output
-        return ""
     }
 
 

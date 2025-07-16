@@ -8,28 +8,23 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
-abstract class CodacyCli(/*val rootPath: String,*/ val provider: String,
-                         val organization: String,
-                         val repository: String,
-                         val project: Project
+abstract class CodacyCli(
+    val provider: String,
+    val organization: String,
+    val repository: String,
+    val project: Project
 ) {
 
+    var cliCommand: String = ""
 
     companion object {
-
-        //TODO maybe move it somewhere else
-        val CLI_SHELL_NAME = "cli.sh"
-
-        //TODO this is our singleton instance
         private var codacyCli: CodacyCli? = null
-
         suspend fun getInstance(
             provider: String,
             organization: String,
             repository: String,
             project: Project
         ): CodacyCli {
-
             if (codacyCli == null) {
                 codacyCli = createInstance(provider, organization, repository, project)
             } else if (
@@ -39,7 +34,6 @@ abstract class CodacyCli(/*val rootPath: String,*/ val provider: String,
             ) {
                 codacyCli = createInstance(provider, organization, repository, project)
             }
-
             return codacyCli!!
         }
 
@@ -66,54 +60,15 @@ abstract class CodacyCli(/*val rootPath: String,*/ val provider: String,
                     MacOsCli(provider, organization, repository, project)
                 }
             }
-
-            cli.preflightCliCommand(false)
-
-
+            cli.preflightCliCommand(true) //TODO originally false
             return cli
         }
-
-
     }
-
-
-    var cliCommand: String = ""
-
-
-//    val MAX_BUFFER_SIZE: Int
-//        get() = 1024 * 1024 * 10
-//
-//    val codacyDirectoryName: String
-//        get() = ".codacy"
-//
-//    val rootPath: String
-//    val provider: String
-//    val organization: String
-//    val repository: String
-
-
-    abstract suspend fun install()
-
-//    fun installDependencies(): Unit
-//
-//    fun update(): Unit
-//
-//    fun getCliCommands(): Unit
-//
-//    fun analyze(): Unit
-//
-//    val _accountToken: String?
-//        get() = Config.instance.storedApiToken
-
-
-//    val _cliVersion: String?
-//        get() = Config.CodacyCli().cliVersion
-
 
     suspend fun execAsync(
         command: String,
         args: Map<String, String>? = null,
-//        rootPath: String,
+        cliVersion: String? = null, //TODO might be easier to just pass env here
     ): Result<Pair<String, String>> = withContext(Dispatchers.IO) {
         // Stringify the args
         val argsString = args?.entries
@@ -218,4 +173,6 @@ abstract class CodacyCli(/*val rootPath: String,*/ val provider: String,
             Result.failure(e)
         }
     }
+
+    abstract suspend fun install()
 }

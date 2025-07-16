@@ -247,6 +247,7 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
                 }
             }
             panel.add(logOutButton, BorderLayout.SOUTH)
+            panel.add(createCLIButton)
         }
         val contentFactory = ContentFactory.getInstance()
         val content = contentFactory.createContent(panel, "", false)

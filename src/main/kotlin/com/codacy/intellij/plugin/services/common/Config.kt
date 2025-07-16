@@ -20,9 +20,9 @@ class Config : PersistentStateComponent<Config.State> {
     private var apiToken: String? = null
 
     companion object {
-        //TODO for CLI, static config values
-        val CODACY_FOLDER_NAME: String = ".codacy"
-        val CODACY_CLI_LINK: String = "https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh"
+        const val CLI_SHELL_NAME = "cli.sh"
+        const val CODACY_FOLDER_NAME: String = ".codacy"
+        const val CODACY_CLI_DOWNLOAD_LINK: String = "https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh"
 
 
         private val log = Logger
@@ -33,7 +33,9 @@ class Config : PersistentStateComponent<Config.State> {
 
     data class State(
         var baseUri: String? = null,
-        var cliVersion: String = "1.0.0"
+
+        var availableCliVersions: List<String> = listOf(),
+        var selectedCliVersion: String = ""
     )
 
     override fun getState(): State = state
@@ -69,7 +71,7 @@ class Config : PersistentStateComponent<Config.State> {
     }
 
     val cliVersion: String
-        get() = state.cliVersion //TODO my approach is better
+        get() = state.selectedCliVersion //TODO better name
 
     val baseUri: String
         get() = state.baseUri ?: "https://app.codacy.com/api/v3"
