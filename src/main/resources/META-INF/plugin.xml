@@ -16,8 +16,10 @@
         <statusBarWidgetFactory implementation="com.codacy.intellij.plugin.views.CodacyStatusBarWidgetFactory" id="com.codacy.intellij.plugin.CodacyStatusBarWidget"/>
         <postStartupActivity implementation="com.codacy.intellij.plugin.listeners.MyStartupActivity"/>
         <applicationConfigurable
-                id="myPluginSettings"
-                displayName="My Plugin Settings"
+                id="codacyPluginSettings"
+                displayName="Codacy Plugin Settings"
+                instance="com.codacy.intellij.plugin.services.common.ConfigConfigurable"
+                parentId="tools"
         />
     </extensions>
 </idea-plugin>

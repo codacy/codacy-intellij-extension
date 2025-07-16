@@ -12,18 +12,19 @@ import com.intellij.openapi.components.*
 )
 @Service
 class Config : PersistentStateComponent<Config.State> {
+
+    //////////////// TODO, these are for CLI right now, prolly need to be moved to a different class
+    var canInstallCli = false
+    ////////////////
     private var state = State()
     private var apiToken: String? = null
 
-    //TODO
-    class CodacyCli() {
-        var cliVersion: String? = null
-
-    }
-    var mySetting = "hello world"
-
-
     companion object {
+        //TODO for CLI, static config values
+        val CODACY_FOLDER_NAME: String = ".codacy"
+        val CODACY_CLI_LINK: String = "https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh"
+
+
         private val log = Logger
 
         val instance: Config
@@ -31,7 +32,8 @@ class Config : PersistentStateComponent<Config.State> {
     }
 
     data class State(
-        var baseUri: String? = null
+        var baseUri: String? = null,
+        var cliVersion: String = "1.0.0"
     )
 
     override fun getState(): State = state
@@ -65,6 +67,9 @@ class Config : PersistentStateComponent<Config.State> {
             log.info("API Token stored")
         }
     }
+
+    val cliVersion: String
+        get() = state.cliVersion //TODO my approach is better
 
     val baseUri: String
         get() = state.baseUri ?: "https://app.codacy.com/api/v3"

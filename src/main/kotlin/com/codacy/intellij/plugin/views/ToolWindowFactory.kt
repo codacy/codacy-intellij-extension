@@ -1,6 +1,8 @@
 package com.codacy.intellij.plugin.views
 
 import com.codacy.intellij.plugin.services.api.models.IssueThreshold
+import com.codacy.intellij.plugin.services.cli.CodacyCli
+import com.codacy.intellij.plugin.services.cli.MacOsCli
 import com.codacy.intellij.plugin.services.common.Config
 import com.codacy.intellij.plugin.services.common.IconUtils
 import com.codacy.intellij.plugin.services.common.TimeoutManager
@@ -8,6 +10,8 @@ import com.codacy.intellij.plugin.services.git.PullRequest
 import com.codacy.intellij.plugin.services.git.RepositoryManager
 import com.intellij.icons.AllIcons
 import com.intellij.ide.BrowserUtil
+import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.service
@@ -23,6 +27,7 @@ import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.content.ContentFactory
 import com.intellij.ui.treeStructure.Tree
 import com.sun.net.httpserver.HttpServer
+import kotlinx.coroutines.runBlocking
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.FlowLayout
@@ -121,6 +126,15 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
         }
         buttonsPanel.add(signInButton, BorderLayout.NORTH)
 
+        //TODO this will be only for debug purposes to see what's going on
+//        val macOsCli = MacOsCli("/Users/og_pixel/workspace/codacy-intellij-plugin", "gh", "og-pixel", "sandbox", project)
+//        val debugInitializeBtn = JButton("Debug initialize")
+//        val debugInstallBtn = JButton("Debug install")
+//        val debugFindCliCommand = JButton("Debug find cli command")
+//        val debugCurlCommand = JButton("Debug curl test")
+        val createCLIButton = JButton("Create CLI")
+
+
         val initConfigButton = JButton("Reload token")
         initConfigButton.addActionListener { e: ActionEvent? ->
             val configService: Config = service()
@@ -132,6 +146,42 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
             }
         }
         buttonsPanel.add(initConfigButton, BorderLayout.NORTH)
+        //TODO delete later
+        createCLIButton.addActionListener { e: ActionEvent? ->
+            runBlocking {
+                val cli = CodacyCli.getInstance("gh", "og-pixel", "sandbox", project)
+                NotificationGroupManager.getInstance()
+                    .getNotificationGroup("CodacyNotifications")
+                    .createNotification(cli.toString(), NotificationType.INFORMATION)
+                    .notify(project)
+            }
+        }
+//
+//        debugInitializeBtn.addActionListener {e : ActionEvent? ->
+//            macOsCli.initialize()
+//        }
+//        debugInstallBtn.addActionListener { e: ActionEvent? ->
+//            runBlocking {
+//                macOsCli.install()
+//            }
+//        }
+//        debugFindCliCommand.addActionListener { e: ActionEvent? ->
+//            runBlocking {
+//                macOsCli.findCliCommand(project)
+//            }
+//        }
+//        debugCurlCommand.addActionListener { e: ActionEvent? ->
+//            runBlocking {
+//                macOsCli.curlDownload(Config.CODACY_CLI_LINK, "/Users/og_pixel/workspace/download-script.sh", project)
+//            }
+//        }
+//        buttonsPanel.add(debugInstallBtn, BorderLayout.NORTH)
+//        //TODO delete later
+//        buttonsPanel.add(debugInstallBtn, BorderLayout.NORTH)
+//        buttonsPanel.add(debugCurlCommand, BorderLayout.NORTH)
+//        buttonsPanel.add(debugInitializeBtn, BorderLayout.NORTH)
+//        buttonsPanel.add(debugFindCliCommand, BorderLayout.NORTH)
+        buttonsPanel.add(createCLIButton, BorderLayout.NORTH)
 
         panel.add(buttonsPanel, BorderLayout.NORTH)
 
