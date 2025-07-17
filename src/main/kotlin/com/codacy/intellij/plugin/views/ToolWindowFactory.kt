@@ -2,7 +2,6 @@ package com.codacy.intellij.plugin.views
 
 import com.codacy.intellij.plugin.services.api.models.IssueThreshold
 import com.codacy.intellij.plugin.services.cli.CodacyCli
-import com.codacy.intellij.plugin.services.cli.MacOsCli
 import com.codacy.intellij.plugin.services.common.Config
 import com.codacy.intellij.plugin.services.common.IconUtils
 import com.codacy.intellij.plugin.services.common.TimeoutManager
@@ -31,6 +30,7 @@ import kotlinx.coroutines.runBlocking
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.FlowLayout
+import java.awt.GridLayout
 import java.awt.event.ActionEvent
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
@@ -115,7 +115,8 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
         ApplicationManager.getApplication().invokeLater {
             toolWindow.setIcon(IconUtils.CodacyIcon)
         }
-        val panel = JPanel(BorderLayout())
+//        val panel = JPanel(BorderLayout())
+        val panel = JPanel(GridLayout(3,1))
 
 
         val buttonsPanel = JPanel(FlowLayout(FlowLayout.LEFT))
@@ -125,15 +126,6 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
             startLocalHttpServer(project, toolWindow)
         }
         buttonsPanel.add(signInButton, BorderLayout.NORTH)
-
-        //TODO this will be only for debug purposes to see what's going on
-//        val macOsCli = MacOsCli("/Users/og_pixel/workspace/codacy-intellij-plugin", "gh", "og-pixel", "sandbox", project)
-//        val debugInitializeBtn = JButton("Debug initialize")
-//        val debugInstallBtn = JButton("Debug install")
-//        val debugFindCliCommand = JButton("Debug find cli command")
-//        val debugCurlCommand = JButton("Debug curl test")
-        val createCLIButton = JButton("Create CLI")
-
 
         val initConfigButton = JButton("Reload token")
         initConfigButton.addActionListener { e: ActionEvent? ->
@@ -146,44 +138,55 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
             }
         }
         buttonsPanel.add(initConfigButton, BorderLayout.NORTH)
+
         //TODO delete later
-        createCLIButton.addActionListener { e: ActionEvent? ->
+        val cliPresentLabel = JLabel("Codacy CLI is not installed.")
+        val cliSettingsPresentLabel = JLabel("Codacy CLI is not initalized.")
+        val downloadCliButton = JButton("Download CLI")
+        val initCliButton = JButton("Initialize CLI")
+
+        downloadCliButton.addActionListener {
             runBlocking {
-                val cli = CodacyCli.getInstance("gh", "og-pixel", "sandbox", project)
-                NotificationGroupManager.getInstance()
-                    .getNotificationGroup("CodacyNotifications")
-                    .createNotification(cli.toString(), NotificationType.INFORMATION)
-                    .notify(project)
+                val cli = CodacyCli.getService("gh", "og-pixel", "sandbox", project)
+                cli.prepareCli(false)
+                updateCliStatus(project, cliPresentLabel, cliSettingsPresentLabel)
             }
         }
-//
-//        debugInitializeBtn.addActionListener {e : ActionEvent? ->
-//            macOsCli.initialize()
-//        }
-//        debugInstallBtn.addActionListener { e: ActionEvent? ->
-//            runBlocking {
-//                macOsCli.install()
-//            }
-//        }
-//        debugFindCliCommand.addActionListener { e: ActionEvent? ->
-//            runBlocking {
-//                macOsCli.findCliCommand(project)
-//            }
-//        }
-//        debugCurlCommand.addActionListener { e: ActionEvent? ->
-//            runBlocking {
-//                macOsCli.curlDownload(Config.CODACY_CLI_LINK, "/Users/og_pixel/workspace/download-script.sh", project)
-//            }
-//        }
-//        buttonsPanel.add(debugInstallBtn, BorderLayout.NORTH)
-//        //TODO delete later
-//        buttonsPanel.add(debugInstallBtn, BorderLayout.NORTH)
-//        buttonsPanel.add(debugCurlCommand, BorderLayout.NORTH)
-//        buttonsPanel.add(debugInitializeBtn, BorderLayout.NORTH)
-//        buttonsPanel.add(debugFindCliCommand, BorderLayout.NORTH)
-        buttonsPanel.add(createCLIButton, BorderLayout.NORTH)
 
-        panel.add(buttonsPanel, BorderLayout.NORTH)
+        initCliButton.addActionListener {
+            runBlocking {
+                val cli = CodacyCli.getService("gh", "og-pixel", "sandbox", project)
+                cli.prepareCli(true)
+                updateCliStatus(project, cliPresentLabel, cliSettingsPresentLabel)
+            }
+        }
+
+//        runBlocking {
+//            val cli = CodacyCli.getService("gh", "og-pixel", "sandbox", project)
+//            NotificationGroupManager.getInstance()
+//                .getNotificationGroup("CodacyNotifications")
+//                .createNotification(cli.toString(), NotificationType.INFORMATION)
+//                .notify(project)
+//            if(isCliShellFilePresent()) {
+//                cliPresentLabel.text = "Codacy CLI is installed."
+//                cliPresentLabel.icon = AllIcons.General.InspectionsOK
+//            } else {
+//                cliPresentLabel.text = "Codacy CLI is not installed."
+//                cliPresentLabel.icon = AllIcons.General.BalloonError
+//            }
+//
+//            if(cli.isCodacySettingsPresent()) {
+//                cliSettingsPresentLabel.text = "Codacy CLI is initialized."
+//                cliSettingsPresentLabel.icon = AllIcons.General.InspectionsOK
+//            } else {
+//                cliSettingsPresentLabel.text = "Codacy CLI is not initialized."
+//                cliSettingsPresentLabel.icon = AllIcons.General.BalloonError
+//            }
+//
+//        }
+
+
+        panel.add(buttonsPanel)
 
         val nodeContent = NodeContent(
             text = "Codacy",
@@ -205,7 +208,9 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
                 rootNode.removeAllChildren()
                 repositoryManager.pullRequest?.refresh()
             }
-            panel.add(refreshButton, BorderLayout.NORTH)
+            panel.add(refreshButton)
+            panel.add(downloadCliButton)
+            panel.add(initCliButton)
 
             listener?.dispose()
             listener = repositoryManager.onDidUpdatePullRequest {
@@ -218,7 +223,7 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
             updateTree(project, rootNode)
             treeModel.reload()
 
-            panel.add(JBScrollPane(tree), BorderLayout.CENTER)
+            panel.add(JBScrollPane(tree))
 
             tree.addMouseListener(object : MouseAdapter() {
                 override fun mouseClicked(e: MouseEvent) {
@@ -246,8 +251,10 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
                     updateToolWindowContent(project, toolWindow)
                 }
             }
-            panel.add(logOutButton, BorderLayout.SOUTH)
-            panel.add(createCLIButton)
+            panel.add(logOutButton)
+            panel.add(cliPresentLabel)
+            panel.add(cliSettingsPresentLabel)
+//            panel.add(createCLIButton)
         }
         val contentFactory = ContentFactory.getInstance()
         val content = contentFactory.createContent(panel, "", false)
@@ -541,6 +548,28 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
         ApplicationManager.getApplication().invokeLater {
             val fileEditorManager = FileEditorManager.getInstance(project)
             fileEditorManager.openTextEditor(OpenFileDescriptor(project, virtualFile), true)
+        }
+    }
+
+    private fun updateCliStatus(project: Project, cliPresentLabel: JLabel, cliSettingsPresentLabel: JLabel) {
+//        NotificationGroupManager.getInstance()
+//            .getNotificationGroup("CodacyNotifications")
+//            .createNotification(cli.toString(), NotificationType.INFORMATION)
+//            .notify(project)
+        if(CodacyCli.isCliShellFilePresent(project)) {
+            cliPresentLabel.text = "Codacy CLI is installed."
+            cliPresentLabel.icon = AllIcons.General.InspectionsOK
+        } else {
+            cliPresentLabel.text = "Codacy CLI is not installed."
+            cliPresentLabel.icon = AllIcons.General.BalloonError
+        }
+
+        if(CodacyCli.isCodacySettingsPresent(project)) {
+            cliSettingsPresentLabel.text = "Codacy CLI is initialized."
+            cliSettingsPresentLabel.icon = AllIcons.General.InspectionsOK
+        } else {
+            cliSettingsPresentLabel.text = "Codacy CLI is not initialized."
+            cliSettingsPresentLabel.icon = AllIcons.General.BalloonError
         }
     }
 

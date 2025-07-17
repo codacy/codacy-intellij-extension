@@ -4,31 +4,30 @@ import com.codacy.intellij.plugin.services.common.Config
 import com.codacy.intellij.plugin.services.common.Config.Companion.CLI_SHELL_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_DOWNLOAD_LINK
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_V2_VERSION_ENV_NAME
-import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_FOLDER_NAME
+import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_DIRECTORY_NAME
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
-import com.intellij.openapi.progress.ProgressIndicator
-import com.intellij.openapi.progress.ProgressManager
-import com.intellij.openapi.progress.Task
+import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
 import com.intellij.util.io.exists
 import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.nio.file.Paths
 
-class MacOsCli(provider: String, organization: String, repository: String, project: Project) :
-    CodacyCli(provider, organization, repository, project) {
+@Service
+class MacOsCli() : CodacyCli() {
 
     private val config = Config.instance
 
     var accountToken = config.storedApiToken
 
     //TODO ✅
-    suspend fun findCliCommand(project: Project, autoInstall: Boolean = false) {
+    suspend fun findCliCommand(project: Project): String? {
 
-        val localPath = Paths.get(CODACY_FOLDER_NAME, CLI_SHELL_NAME)
+        //TODO I dont think I actually need this
+        val localPath = Paths.get(CODACY_DIRECTORY_NAME, CLI_SHELL_NAME)
         //TODO make sure toAboslutePath makes sense here
-        val fullPath = Paths.get(project.basePath, CODACY_FOLDER_NAME, CLI_SHELL_NAME).toAbsolutePath()
+        val fullPath = Paths.get(project.basePath, CODACY_DIRECTORY_NAME, CLI_SHELL_NAME).toAbsolutePath()
 
         // check if .codacy/cli.sh exists
 //        if (fullPath.exists()) {
@@ -42,100 +41,119 @@ class MacOsCli(provider: String, organization: String, repository: String, proje
 
         //TODO new approach, env will be separate
         // still not exactly happy about it
-        if(fullPath.exists()) {
-            config.state.cliCommand = localPath.toString()
-            if(config.cliVersion.isNotBlank()) {
-                //TODO i might not need this anymore
-//                cliVersion = "$CODACY_CLI_V2_VERSION_ENV_NAME=${config.cliVersion}"
-            }
-        }
+        if (isCliShellFilePresent(project)) {
+//            cliCommand = localPath.toString()
+            return fullPath.toString()
+        } else return null
 
 
-        NotificationGroupManager.getInstance()
-            .getNotificationGroup("CodacyNotifications")
-            .createNotification("fullPath: " + fullPath, NotificationType.INFORMATION)
-            .notify(project)
-
-        if (autoInstall) {
-            install()
-        }
+//        NotificationGroupManager.getInstance()
+//            .getNotificationGroup("CodacyNotifications")
+//            .createNotification("fullPath: " + fullPath, NotificationType.INFORMATION)
+//            .notify(project)
+//
+//        if (autoInstall) {
+//            install()
+//        }
     }
 
-    suspend fun preflightCliCommand(autoInstall: Boolean) {
+    //TODO I think this should be a more general function to install the entire thing
+    override suspend fun prepareCli(autoInstall: Boolean) {
         NotificationGroupManager.getInstance()
             .getNotificationGroup("CodacyNotifications")
             .createNotification("preflight", NotificationType.INFORMATION)
             .notify(project)
 
-        if (config.state.cliCommand.isBlank()) {
+        if (cliCommand.isBlank()) {
             NotificationGroupManager.getInstance()
                 .getNotificationGroup("CodacyNotifications")
                 .createNotification("cli is blank", NotificationType.INFORMATION)
                 .notify(project)
 
-            findCliCommand(project, autoInstall)
-        } else {
-            NotificationGroupManager.getInstance()
-                .getNotificationGroup("CodacyNotifications")
-                .createNotification("init", NotificationType.INFORMATION)
-                .notify(project)
+            var _cliCommand = findCliCommand(project)
+            if (_cliCommand == null) {
+                //Install CLI 1st
+                _cliCommand = installCli()
 
-            initialize() //TODO//async
+                if (_cliCommand == null) {
+                    //TODO better error handling
+                    throw RuntimeException("Failed to install CLI, please check your configuration and try again.")
+                }
+
+            }
+            cliCommand = _cliCommand
         }
+
+        if (autoInstall) {
+            //TODO better name
+            val isInitalized = isCodacySettingsPresent(project)
+
+            if (!isInitalized) {
+                initialize()
+            }
+        }
+
+
+//        else {
+//            NotificationGroupManager.getInstance()
+//                .getNotificationGroup("CodacyNotifications")
+//                .createNotification("init", NotificationType.INFORMATION)
+//                .notify(project)
+//
+//            initialize() //TODO//async
+//        }
     }
 
-    override suspend fun install() {
+    override suspend fun installCli(): String? {
         //TODO Set some setting that cli is installing?
 //        await vscode.commands.executeCommand('setContext', 'codacy:cliInstalling', true)
 
         val prj = project
 
-        ProgressManager.getInstance().run(object : Task.Backgroundable(null, "Installing CLI", false) {
-            override fun run(progressIndicator: ProgressIndicator) {
-                progressIndicator.isIndeterminate = true
 
-                val fullPath = Paths.get(prj?.basePath, CODACY_FOLDER_NAME)
+        val fullPath = Paths.get(prj?.basePath, CODACY_DIRECTORY_NAME)
 
-                //TODO some progress window like in vscode?
-                if (!fullPath.exists()) {
-                    fullPath.toFile().mkdirs()
-                }
+        //TODO some progress window like in vscode?
+        if (!isCodacyDirectoryPresent(project)) {
+            fullPath.toFile().mkdirs()
+        }
 
-                val codacyCliPath = Paths.get(prj?.basePath, CODACY_FOLDER_NAME, CLI_SHELL_NAME)
+        val codacyCliPath = Paths.get(prj?.basePath, CODACY_DIRECTORY_NAME, CLI_SHELL_NAME)
 
-                if (!codacyCliPath.exists()) {
-                    // Download cli.sh if it doesn't exist
+        if (!codacyCliPath.exists()) {
+            // Download cli.sh if it doesn't exist
 
-                    // const execPath = this.preparePathForExec(codacyCliPath)
-                    //TODO some preflight check for curl?
-                    val execOutputPath = codacyCliPath.toAbsolutePath().toString()
+            // const execPath = this.preparePathForExec(codacyCliPath)
+            //TODO some preflight check for curl?
+            val execOutputPath = codacyCliPath.toAbsolutePath().toString()
 
-                    runBlocking {//TODO make sure this will be okay
-                        downloadCodacyCli(execOutputPath, prj)
-                    }
-                    // const execPath = this.preparePathForExec(codacyCliPath) //TODO this is not used for UNIX but for windows to normialize path
+            //TODO add a check if it downloaded successfully
+            runBlocking {//TODO make sure this will be okay
+                downloadCodacyCli(execOutputPath, prj)
+            }
+            // const execPath = this.preparePathForExec(codacyCliPath) //TODO this is not used for UNIX but for windows to normialize path
 
-                    //TODO old approach
+            //TODO old approach
 //                    cliCommand = if (config.cliVersion.isBlank()) {
 //                        execOutputPath
 //                    } else {
 //                        "CODACY_CLI_V2_VERSION=${config.cliVersion} $execOutputPath"
 //                    }
 
-                    //TODO new approach, env will be separate
-                    // still not exactly happy about it
-                    //TODO make sure this makes sense
-                    config.state.cliCommand = execOutputPath
+            //TODO new approach, env will be separate
+            // still not exactly happy about it
+            //TODO make sure this makes sense
+//            cliCommand = execOutputPath
 //                    cliVersion = config.cliVersion
 
-                    //TODO should really not block it
-                    runBlocking {
-                        initialize()
-                    }
-                }
-            }
-        })
+            return execOutputPath
+            //TODO should really not block it
+//            runBlocking {
+//                initialize()
+//            }
+        }
 
+        return null
     }
 
     fun installDependencies() {
@@ -145,10 +163,10 @@ class MacOsCli(provider: String, organization: String, repository: String, proje
 
         NotificationGroupManager.getInstance()
             .getNotificationGroup("CodacyNotifications")
-            .createNotification("a2: ${config.state.cliCommand}", NotificationType.INFORMATION)
+            .createNotification("a2: ${cliCommand}", NotificationType.INFORMATION)
             .notify(project)
 
-        val program = ProcessBuilder(config.state.cliCommand, "install")
+        val program = ProcessBuilder(cliCommand, "install")
             .redirectErrorStream(true)
 
         //TODO work on hardcoded value
@@ -168,10 +186,6 @@ class MacOsCli(provider: String, organization: String, repository: String, proje
             .notify(project)
     }
 
-    fun update() {
-
-    }
-
     suspend fun initialize() {
 // Check if the configuration files exist
         //TODO hardcode file names
@@ -180,9 +194,9 @@ class MacOsCli(provider: String, organization: String, repository: String, proje
         val rootPath = project.basePath ?: throw RuntimeException("Project base path is not set")
 
 
-        val configFilePath = Paths.get(rootPath, CODACY_FOLDER_NAME, "codacy.yaml")
-        val cliConfigFilePath = Paths.get(rootPath, CODACY_FOLDER_NAME, "cli-config.yaml")
-        val toolsFolderPath = Paths.get(rootPath, CODACY_FOLDER_NAME, "tools-configs")
+        val configFilePath = Paths.get(rootPath, CODACY_DIRECTORY_NAME, "codacy.yaml")
+        val cliConfigFilePath = Paths.get(rootPath, CODACY_DIRECTORY_NAME, "cli-config.yaml")
+        val toolsFolderPath = Paths.get(rootPath, CODACY_DIRECTORY_NAME, "tools-configs")
 
         val initFilesOk = configFilePath.exists() && cliConfigFilePath.exists() && toolsFolderPath.exists()
 
@@ -193,7 +207,7 @@ class MacOsCli(provider: String, organization: String, repository: String, proje
 
             //TODO make sure path is okay, maybe needs to be absolute
             val cliConfig =
-                File(Paths.get(rootPath, CODACY_FOLDER_NAME, "cli-config.yaml").toString()).readText(/*UTF-8*/)
+                File(Paths.get(rootPath, CODACY_DIRECTORY_NAME, "cli-config.yaml").toString()).readText(/*UTF-8*/)
 
             if ((cliConfig == "mode: local" && this.repository.isNotBlank()) || (cliConfig == "mode: remote" && this.repository.isBlank())) {
                 needsInitialization = true
@@ -247,7 +261,7 @@ class MacOsCli(provider: String, organization: String, repository: String, proje
             try {
                 // initialize codacy-cli
                 //TODO make sure this is correct
-                execAsync("${config.state.cliCommand} init", initParams) //TODO CLI command to be written
+                execAsync("${cliCommand} init", initParams) //TODO CLI command to be written
             } catch (error: Exception) {
 
                 NotificationGroupManager.getInstance()
@@ -276,10 +290,6 @@ class MacOsCli(provider: String, organization: String, repository: String, proje
             }
         }
 
-
-    }
-
-    fun analyze() {
 
     }
 
