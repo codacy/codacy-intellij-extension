@@ -1,11 +1,13 @@
 package com.codacy.intellij.plugin.services.cli
 
 import com.codacy.intellij.plugin.services.common.Config
-import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_SHELL_NAME
+import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_CONFIG_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_DOWNLOAD_LINK
+import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_SHELL_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_V2_VERSION_ENV_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_DIRECTORY_NAME
-import com.intellij.notification.NotificationGroupManager
+import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_TOOLS_CONFIGS_NAME
+import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_YAML_NAME
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
@@ -17,11 +19,9 @@ import java.nio.file.Paths
 class MacOsCli() : CodacyCli() {
 
     private val config = Config.instance
-
-    var accountToken = config.storedApiToken
+    private var accountToken = config.storedApiToken
 
     fun findCliCommand(project: Project): String? {
-        //TODO check unknown project path
         val fullPath = Paths.get(rootPath, CODACY_DIRECTORY_NAME, CODACY_CLI_SHELL_NAME).toAbsolutePath()
 
         return if (isCliShellFilePresent(project)) {
@@ -34,12 +34,11 @@ class MacOsCli() : CodacyCli() {
 
             var _cliCommand = findCliCommand(project)
             if (_cliCommand == null) {
-                //Install CLI 1st
+
                 _cliCommand = installCli()
 
                 if (_cliCommand == null) {
-                    //TODO better error handling
-                    throw RuntimeException("Failed to install CLI, please check your configuration and try again.")
+                    return
                 }
             }
             cliCommand = _cliCommand
@@ -48,27 +47,39 @@ class MacOsCli() : CodacyCli() {
         if (autoInstall && !isCodacySettingsPresent(project)) {
             initialize()
         }
+
+        cliWindowFactory.updateCliStatus(
+            isCliShellFilePresent(project),
+            isCodacySettingsPresent(project)
+        )
     }
 
     override suspend fun installCli(): String? {
-        val fullPath = Paths.get(rootPath, CODACY_DIRECTORY_NAME)
+        val codacyConfigFullPath = Paths.get(rootPath, CODACY_DIRECTORY_NAME)
 
         if (!isCodacyDirectoryPresent(project)) {
-            fullPath.toFile().mkdirs()
+            codacyConfigFullPath.toFile().mkdirs()
         }
 
-        val codacyCliPath = Paths.get(rootPath, CODACY_DIRECTORY_NAME, CODACY_CLI_SHELL_NAME)
+        val codacyCliPath = Paths.get(rootPath, CODACY_DIRECTORY_NAME, CODACY_CLI_SHELL_NAME).toAbsolutePath()
 
         if (!codacyCliPath.exists()) {
-            //TODO some preflight check for curl?
-            val execOutputPath = codacyCliPath.toAbsolutePath().toString()
-
-            //TODO add a check if it downloaded successfully
-            downloadCodacyCli(execOutputPath, project)
-            return execOutputPath
+            val cliExitCode = downloadCodacyCli(codacyCliPath.toString())
+            if (cliExitCode != 0) {
+                notificationManager
+                    .createNotification(
+                        "Failed to download Codacy CLI",
+                        "Please check your network connection and try again. Exited with error code. $cliExitCode",
+                        NotificationType.ERROR
+                    )
+                    .notify(project)
+                return null
+            } else {
+                return codacyCliPath.toString()
+            }
+        } else {
+            return codacyCliPath.toString()
         }
-
-        return null
     }
 
     fun installDependencies() {
@@ -81,36 +92,37 @@ class MacOsCli() : CodacyCli() {
             .waitFor()
 
         if (exitCode != 0) {
-            throw RuntimeException("Curl failed with exit code $exitCode")
+            notificationManager
+                .createNotification(
+                    "Codacy CLI has failed to install Dependencies",
+                    "Program exited with error code $exitCode",
+                    NotificationType.ERROR
+                )
+                .notify(project)
         }
 
-        NotificationGroupManager.getInstance()
-            .getNotificationGroup("CodacyNotifications")
+        notificationManager
             .createNotification("Dependencies installed successfully", NotificationType.INFORMATION)
             .notify(project)
     }
 
     suspend fun initialize() {
-        //TODO use new file checking function
-        val configFilePath = Paths.get(rootPath, CODACY_DIRECTORY_NAME, "codacy.yaml")
-        val cliConfigFilePath = Paths.get(rootPath, CODACY_DIRECTORY_NAME, "cli-config.yaml")
-        val toolsFolderPath = Paths.get(rootPath, CODACY_DIRECTORY_NAME, "tools-configs")
+        val configFilePath = Paths.get(rootPath, CODACY_DIRECTORY_NAME, CODACY_YAML_NAME)
+        val cliConfigFilePath = Paths.get(rootPath, CODACY_DIRECTORY_NAME, CODACY_CLI_CONFIG_NAME)
+        val toolsFolderPath = Paths.get(rootPath, CODACY_DIRECTORY_NAME, CODACY_TOOLS_CONFIGS_NAME)
 
         val initFilesOk = configFilePath.exists() && cliConfigFilePath.exists() && toolsFolderPath.exists()
 
         var needsInitialization = !initFilesOk
 
         if (initFilesOk) {
-            //TODO make sure path is okay, maybe needs to be absolute
-            //TODO file check function
             val cliConfig =
-                File(Paths.get(rootPath, CODACY_DIRECTORY_NAME, "cli-config.yaml").toString()).readText(/*UTF-8*/)
+                File(Paths.get(rootPath, CODACY_DIRECTORY_NAME, CODACY_CLI_CONFIG_NAME).toString()).readText()
 
             if ((cliConfig == "mode: local" && this.repository.isNotBlank()) || (cliConfig == "mode: remote" && this.repository.isBlank())) {
                 needsInitialization = true
             }
         }
-
 
         if (needsInitialization) {
             val initParams = if (
@@ -149,12 +161,13 @@ class MacOsCli() : CodacyCli() {
                     gitignoreFile.appendText("*.sh\n")
                 }
             }
+
+            notificationManager.createNotification("Codacy CLI initialized successfully", NotificationType.INFORMATION)
+                .notify(project)
         }
-
-
     }
 
-    fun downloadCodacyCli(outputPath: String, project: Project) {
+    fun downloadCodacyCli(outputPath: String): Int {
         val process = ProcessBuilder("curl", "-Ls", CODACY_CLI_DOWNLOAD_LINK)
             .redirectErrorStream(true)
             .start()
@@ -163,15 +176,13 @@ class MacOsCli() : CodacyCli() {
         val exitCode = process.waitFor()
 
         if (exitCode != 0) {
-            throw RuntimeException("Curl failed with exit code $exitCode")
+            return exitCode
         }
 
-        // Write the output to the specified file
         val outputFile = Paths.get(outputPath)
         outputFile.toFile().writeText(output)
 
-        // Give executable permissions to the file
-        ProcessBuilder("chmod", "+x", outputFile.toAbsolutePath().toString())
+        return ProcessBuilder("chmod", "+x", outputFile.toAbsolutePath().toString())
             .redirectErrorStream(true)
             .start()
             .waitFor()

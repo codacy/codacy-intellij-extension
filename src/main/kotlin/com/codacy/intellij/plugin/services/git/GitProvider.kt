@@ -30,5 +30,20 @@ class GitProvider{
             return headCommit != null && trackedCommit != null && headCommit != trackedCommit
         }
 
+        fun extractGitInfo(repository: GitRepository): Triple<String, String, String>? {
+            val remote = repository.remotes.firstOrNull() ?: return null
+            val url = remote.firstUrl ?: return null
+
+            val regex = Regex(
+                """(?:https://|git@)([^/:]+)[/:]([^/]+)/([^/.]+)(?:\.git)?"""
+            )
+            val match = regex.find(url) ?: return null
+
+            val provider = match.groupValues[1]
+            val orgOrUser = match.groupValues[2]
+            val project = match.groupValues[3]
+            return Triple(provider, orgOrUser, project)
+        }
+
     }
 }

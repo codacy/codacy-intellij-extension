@@ -1,19 +1,18 @@
 package com.codacy.intellij.plugin.services.cli
 
 import com.codacy.intellij.plugin.services.common.Config
-import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_SHELL_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_CONFIG_NAME
+import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_SHELL_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_V2_VERSION_ENV_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_DIRECTORY_NAME
+import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_GITIGNORE_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_LOGS_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_TOOLS_CONFIGS_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_YAML_NAME
-import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_GITIGNORE_NAME
+import com.codacy.intellij.plugin.views.CodacyCliToolWindowFactory
 import com.intellij.notification.NotificationGroupManager
-import com.intellij.notification.NotificationType
 import com.intellij.openapi.project.Project
 import com.intellij.util.io.isFile
-
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -30,26 +29,33 @@ abstract class CodacyCli() {
     lateinit var repository: String
     lateinit var project: Project
     lateinit var rootPath: String
+    lateinit var cliWindowFactory: CodacyCliToolWindowFactory
 
     var isServiceInstantiated: Boolean = false
         private set
 
     private val config = Config.instance
-    private val notificationManager = NotificationGroupManager
+    protected val notificationManager = NotificationGroupManager
         .getInstance()
         .getNotificationGroup("CodacyNotifications")
 
-    fun initService(provider: String, organization: String, repository: String, project: Project) {
+    fun initService(
+        provider: String,
+        organization: String,
+        repository: String,
+        project: Project,
+        cliWindowFactory: CodacyCliToolWindowFactory
+    ) {
         val rootPath = project.basePath
             ?: throw IllegalStateException("Project base path is not set")
 
-        //TODO need a way to force-recreate the instance
         if (!isServiceInstantiated) {
             this.provider = provider
             this.organization = organization
             this.repository = repository
             this.project = project
             this.rootPath = rootPath
+            this.cliWindowFactory = cliWindowFactory
             isServiceInstantiated = true
         }
     }
@@ -59,31 +65,37 @@ abstract class CodacyCli() {
             provider: String,
             organization: String,
             repository: String,
-            project: Project
+            project: Project,
+            cliWindowFactory: CodacyCliToolWindowFactory
         ): CodacyCli {
             val systemOs = System.getProperty("os.name").lowercase()
 
             val cli = when (systemOs) {
                 "mac os x", "darwin" -> {
                     val cli = project.getService(MacOsCli::class.java)
-                    cli.initService(provider, organization, repository, project)
+                    cli.initService(provider, organization, repository, project, cliWindowFactory)
                     cli
                 }
 
                 "windows" -> {
                     //TODO
                     val cli = project.getService(MacOsCli::class.java)
-                    cli.initService(provider, organization, repository, project)
+                    cli.initService(provider, organization, repository, project, cliWindowFactory)
                     cli
                 }
 
                 else -> {
                     //TODO
                     val cli = project.getService(MacOsCli::class.java)
-                    cli.initService(provider, organization, repository, project)
+                    cli.initService(provider, organization, repository, project, cliWindowFactory)
                     cli
                 }
             }
+
+            cliWindowFactory.updateCliStatus(
+                isCliShellFilePresent(project),
+                isCodacySettingsPresent(project)
+            )
             return cli
         }
 
@@ -129,13 +141,6 @@ abstract class CodacyCli() {
 
         // Add the args to the command and remove any shell metacharacters
         val cmd = "$command $argsString".trim().replace(Regex("[;&|`$]"), "")
-        NotificationGroupManager.getInstance()
-            .getNotificationGroup("CodacyNotifications")
-            .createNotification(
-                "exec async cmd: $cmd",
-                NotificationType.INFORMATION
-            )
-            .notify(project)
 
         try {
             val program = ProcessBuilder(cmd.split(" "))
