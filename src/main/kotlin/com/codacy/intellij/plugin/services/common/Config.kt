@@ -13,22 +13,20 @@ import com.intellij.openapi.components.*
 @Service
 class Config : PersistentStateComponent<Config.State> {
 
-    //////////////// TODO, these are for CLI right now, prolly need to be moved to a different class
-    var canInstallCli = false
-    ////////////////
     private var state = State()
     private var apiToken: String? = null
 
     companion object {
         const val CODACY_DIRECTORY_NAME: String = ".codacy"
-        const val CLI_SHELL_NAME = "cli.sh"
-        const val GITIGNORE_NAME: String = ".gitignore"
+        const val CODACY_CLI_SHELL_NAME = "cli.sh"
+        const val CODACY_GITIGNORE_NAME: String = ".gitignore"
         const val CODACY_CLI_CONFIG_NAME: String = "cli-config.yaml"
         const val CODACY_YAML_NAME: String = "codacy.yaml"
         const val CODACY_LOGS_NAME: String = "logs"
         const val CODACY_TOOLS_CONFIGS_NAME: String = "tools-configs"
 
         const val CODACY_CLI_DOWNLOAD_LINK: String = "https://raw.githubusercontent.com/codacy/codacy-cli-v2/main/codacy-cli.sh"
+        const val CODACY_CLI_RELEASES_LINK: String = "https://api.github.com/repos/codacy/codacy-cli-v2/releases"
         const val CODACY_CLI_V2_VERSION_ENV_NAME = "CODACY_CLI_V2_VERSION"
 
 
@@ -40,8 +38,6 @@ class Config : PersistentStateComponent<Config.State> {
 
     data class State(
         var baseUri: String? = null,
-
-//        var cliCommand: String = "",
 
         var availableCliVersions: List<String> = listOf(),
         var selectedCliVersion: String = ""
@@ -80,18 +76,16 @@ class Config : PersistentStateComponent<Config.State> {
     }
 
     val cliVersion: String
-        get() = state.selectedCliVersion //TODO better name
+        get() = state.selectedCliVersion
 
     val baseUri: String
         get() = state.baseUri ?: "https://app.codacy.com/api/v3"
 
     val loginUri: String = "https://app.codacy.com/auth/intellij"
-//    val loginUri: String = "https://arielkosacoff.github.io/codacy-intellij-signin/"
 
     val storedApiToken: String?
         get() = apiToken
 
     private fun createCredentialAttributes(): CredentialAttributes =
         CredentialAttributes("Codacy", "")
-
 }

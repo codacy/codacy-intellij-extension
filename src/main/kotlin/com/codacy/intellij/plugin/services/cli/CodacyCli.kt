@@ -1,14 +1,14 @@
 package com.codacy.intellij.plugin.services.cli
 
 import com.codacy.intellij.plugin.services.common.Config
-import com.codacy.intellij.plugin.services.common.Config.Companion.CLI_SHELL_NAME
+import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_SHELL_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_CONFIG_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_V2_VERSION_ENV_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_DIRECTORY_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_LOGS_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_TOOLS_CONFIGS_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_YAML_NAME
-import com.codacy.intellij.plugin.services.common.Config.Companion.GITIGNORE_NAME
+import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_GITIGNORE_NAME
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.project.Project
@@ -29,19 +29,27 @@ abstract class CodacyCli() {
     lateinit var organization: String
     lateinit var repository: String
     lateinit var project: Project
+    lateinit var rootPath: String
 
     var isServiceInstantiated: Boolean = false
         private set
 
     private val config = Config.instance
+    private val notificationManager = NotificationGroupManager
+        .getInstance()
+        .getNotificationGroup("CodacyNotifications")
 
     fun initService(provider: String, organization: String, repository: String, project: Project) {
+        val rootPath = project.basePath
+            ?: throw IllegalStateException("Project base path is not set")
+
         //TODO need a way to force-recreate the instance
         if (!isServiceInstantiated) {
             this.provider = provider
             this.organization = organization
             this.repository = repository
             this.project = project
+            this.rootPath = rootPath
             isServiceInstantiated = true
         }
     }
@@ -80,19 +88,22 @@ abstract class CodacyCli() {
         }
 
         fun isCodacyDirectoryPresent(project: Project): Boolean {
-            val codacyDir = Paths.get(project.basePath, CODACY_DIRECTORY_NAME)
+            val rootPath = project.basePath ?: return false
+            val codacyDir = Paths.get(rootPath, CODACY_DIRECTORY_NAME)
             return codacyDir.exists() && codacyDir.isDirectory()
         }
 
         fun isCliShellFilePresent(project: Project): Boolean {
-            val cliFile = Paths.get(project.basePath, CODACY_DIRECTORY_NAME, CLI_SHELL_NAME)
+            val rootPath = project.basePath ?: return false
+            val cliFile = Paths.get(rootPath, CODACY_DIRECTORY_NAME, CODACY_CLI_SHELL_NAME)
             return cliFile.exists() && cliFile.isFile()
         }
 
         fun isCodacySettingsPresent(project: Project): Boolean {
-            val codacyDirectory = Paths.get(project.basePath, CODACY_DIRECTORY_NAME)
+            val rootPath = project.basePath ?: return false
+            val codacyDirectory = Paths.get(rootPath, CODACY_DIRECTORY_NAME)
 
-            val gitignoreFile = codacyDirectory.resolve(GITIGNORE_NAME)
+            val gitignoreFile = codacyDirectory.resolve(CODACY_GITIGNORE_NAME)
             val cliConfigFile = codacyDirectory.resolve(CODACY_CLI_CONFIG_NAME)
             val codacyYamlFile = codacyDirectory.resolve(CODACY_YAML_NAME)
             val logsDirectory = codacyDirectory.resolve(CODACY_LOGS_NAME)
@@ -126,116 +137,27 @@ abstract class CodacyCli() {
             )
             .notify(project)
 
-        //TODO improve error handling
-        //TODO maybe just make it part of the Init if it doesn't change
-        val rootPath = project.basePath ?: throw IllegalStateException("Project base path is not set")
-
         try {
-            NotificationGroupManager.getInstance()
-                .getNotificationGroup("CodacyNotifications")
-                .createNotification(
-                    "cmd split ${cmd.split(" ")}",
-                    NotificationType.INFORMATION
-                )
-                .notify(project)
-
-            NotificationGroupManager.getInstance()
-                .getNotificationGroup("CodacyNotifications")
-                .createNotification(
-                    "directory $rootPath",
-                    NotificationType.INFORMATION
-                )
-                .notify(project)
-
-
-            NotificationGroupManager.getInstance()
-                .getNotificationGroup("CodacyNotifications")
-                .createNotification(
-                    "PRogram to execute: \n$cmd",
-                    NotificationType.INFORMATION
-                )
-                .notify(project)
-
             val program = ProcessBuilder(cmd.split(" "))
                 .directory(File(rootPath))
                 .redirectErrorStream(false)
-
-
-            //TODO better way to set environment variables
             program.environment()[CODACY_CLI_V2_VERSION_ENV_NAME] = config.cliVersion
 
             val process = program.start()
-
-
             val stdout = process.inputStream.bufferedReader().readText()
             val stderr = process.errorStream.bufferedReader().readText()
 
             process.waitFor()
 
-            NotificationGroupManager.getInstance()
-                .getNotificationGroup("CodacyNotifications")
-                .createNotification(
-                    "process sdtOut: $stdout\nprocess stderr: $stderr",
-                    NotificationType.INFORMATION
-                )
-                .notify(project)
-
             if (process.exitValue() != 0) {
-                NotificationGroupManager.getInstance()
-                    .getNotificationGroup("CodacyNotifications")
-                    .createNotification(
-                        "shell failed",
-                        NotificationType.WARNING
-                    )
-                    .notify(project)
                 Result.failure(Exception(stderr.ifEmpty { "Unknown error" }))
             } else {
-                NotificationGroupManager.getInstance()
-                    .getNotificationGroup("CodacyNotifications")
-                    .createNotification(
-                        "shell successful",
-                        NotificationType.WARNING
-                    )
-                    .notify(project)
                 Result.success(Pair(stdout, stderr))
             }
         } catch (e: Exception) {
-            NotificationGroupManager.getInstance()
-                .getNotificationGroup("CodacyNotifications")
-                .createNotification(
-                    "EXCEPTION: ${e.message}",
-                    NotificationType.WARNING
-                )
-                .notify(project)
             Result.failure(e)
         }
     }
-
-//    fun isCodacyDirectoryPresent(): Boolean {
-//        val codacyDir = Paths.get(project.basePath, CODACY_DIRECTORY_NAME)
-//        return codacyDir.exists() && codacyDir.isDirectory()
-//    }
-//
-//    fun isCliShellFilePresent(): Boolean {
-//        val cliFile = Paths.get(project.basePath, CODACY_DIRECTORY_NAME, CLI_SHELL_NAME)
-//        return cliFile.exists() && cliFile.isFile()
-//    }
-//
-//    fun isCodacySettingsPresent(): Boolean {
-//        val codacyDirectory = Paths.get(project.basePath, CODACY_DIRECTORY_NAME)
-//
-//        val gitignoreFile = codacyDirectory.resolve(GITIGNORE_NAME)
-//        val cliConfigFile = codacyDirectory.resolve(CODACY_CLI_CONFIG_NAME)
-//        val codacyYamlFile = codacyDirectory.resolve(CODACY_YAML_NAME)
-//        val logsDirectory = codacyDirectory.resolve(CODACY_LOGS_NAME)
-//        val toolsConfigsDirectory = codacyDirectory.resolve(CODACY_TOOLS_CONFIGS_NAME)
-//
-//        return (gitignoreFile.exists() && gitignoreFile.isFile() &&
-//                cliConfigFile.exists() && cliConfigFile.isFile() &&
-//                codacyYamlFile.exists() && codacyYamlFile.isFile() &&
-//                logsDirectory.exists() && logsDirectory.isDirectory() &&
-//                toolsConfigsDirectory.exists() && toolsConfigsDirectory.isDirectory())
-//    }
 
     abstract suspend fun prepareCli(autoInstall: Boolean = false)
 

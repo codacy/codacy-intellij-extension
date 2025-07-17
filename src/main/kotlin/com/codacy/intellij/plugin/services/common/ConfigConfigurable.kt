@@ -1,5 +1,6 @@
 package com.codacy.intellij.plugin.services.common
 
+import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_RELEASES_LINK
 import com.google.gson.JsonParser
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.options.SearchableConfigurable
@@ -23,8 +24,7 @@ class ConfigConfigurable : SearchableConfigurable {
             ApplicationManager.getApplication().invokeLater {
                 val state = config.state
                 if (state.availableCliVersions.isEmpty()) {
-                    val versions = fetchAvailableCliVersions()
-                    val tagNames = extractTagNames(versions)
+                    val tagNames = fetchAvailableCliVersions()
                     state.availableCliVersions = tagNames
                     form?.setAvailableCliVersionsDropdown(tagNames, state.selectedCliVersion)
                 } else {
@@ -41,7 +41,7 @@ class ConfigConfigurable : SearchableConfigurable {
 
     override fun apply() {
         val state = Config.instance.state
-        state.selectedCliVersion = form?.getSelectedAvailableCliVersion()!! //TODO forcing here
+        state.selectedCliVersion = form?.getSelectedAvailableCliVersion() ?: ""
     }
 
     override fun reset() {
@@ -55,11 +55,8 @@ class ConfigConfigurable : SearchableConfigurable {
         return "codacyPluginSettings"
     }
 
-    //fetch JSON from https://api.github.com/repos/codacy/codacy-cli-v2/releases
-    // extract tag_name from each object and list it as a list of strings
-    fun fetchAvailableCliVersions(): String {
-        //TODO improve, put the value somewhere, maybe in Config class
-        val process = ProcessBuilder("curl", "https://api.github.com/repos/codacy/codacy-cli-v2/releases")
+    private fun fetchAvailableCliVersions(): List<String> {
+        val process = ProcessBuilder("curl", CODACY_CLI_RELEASES_LINK)
             .redirectErrorStream(false)
             .start()
 
@@ -70,13 +67,12 @@ class ConfigConfigurable : SearchableConfigurable {
             throw RuntimeException("Curl failed with exit code $exitCode")
         }
 
-        return output
+        return extractTagNames(output)
     }
 
-    fun extractTagNames(jsonString: String): List<String> {
+    private fun extractTagNames(jsonString: String): List<String> {
         val jsonElement = JsonParser.parseString(jsonString)
 
-        // Ensure it's a JSON array at the top level
         if (!jsonElement.isJsonArray) {
             throw IllegalArgumentException("Expected JSON array")
         }
