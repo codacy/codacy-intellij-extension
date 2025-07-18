@@ -3,6 +3,7 @@ package com.codacy.intellij.plugin.views
 import com.codacy.intellij.plugin.services.api.models.IssueThreshold
 import com.codacy.intellij.plugin.services.cli.CodacyCli
 import com.codacy.intellij.plugin.services.common.Config
+import com.codacy.intellij.plugin.services.common.GitRemoteParser
 import com.codacy.intellij.plugin.services.common.IconUtils
 import com.codacy.intellij.plugin.services.common.TimeoutManager
 import com.codacy.intellij.plugin.services.git.GitProvider
@@ -18,6 +19,7 @@ import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.ProjectManager
+import com.intellij.openapi.startup.StartupManager
 import com.intellij.openapi.updateSettings.impl.pluginsAdvertisement.notificationGroup
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.wm.ToolWindow
@@ -27,6 +29,10 @@ import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.content.ContentFactory
 import com.intellij.ui.treeStructure.Tree
 import com.sun.net.httpserver.HttpServer
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.awt.BorderLayout
 import java.awt.Component
@@ -533,82 +539,76 @@ class CodacyCliToolWindowFactory : ToolWindowFactory {
     val downloadCliButton = JButton("Download CLI")
     val initCliButton = JButton("Initialize CLI")
 
+    @OptIn(DelicateCoroutinesApi::class)
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
         val self = this
 
-        val gitProvider = GitProvider.getRepository(project)
-        if(gitProvider != null) {
-            val gitInfo = GitProvider.extractGitInfo(gitProvider)
+        StartupManager.getInstance(project).runWhenProjectIsInitialized {
+            val gitProvider = GitProvider.getRepository(project)
+            if (gitProvider != null) {
+                val remote = gitProvider.remotes.firstOrNull()
 
-            val provider = gitInfo?.first
-            val organization = gitInfo?.second
-            val repository = gitInfo?.third
+                if (remote == null) {
+                    notificationGroup.createNotification(
+                        "No remote found.",
+                        "Please make sure you have a valid Git remote in the project.",
+                        NotificationType.ERROR
+                    ).notify(project)
+                    return@runWhenProjectIsInitialized
+                }
+
+                val gitInfo = GitRemoteParser.parseGitRemote(remote.firstUrl!!)
 
 
-            if (provider == null || organization == null || repository == null) {
+                CodacyCli.getService(
+                    gitInfo.provider,
+                    gitInfo.organization,
+                    gitInfo.repository,
+                    project,
+                    self
+                )
+
+                panel.add(downloadCliButton)
+                panel.add(initCliButton)
+                panel.add(cliPresentLabel)
+                panel.add(cliSettingsPresentLabel)
+
+                downloadCliButton.addActionListener {
+                    GlobalScope.launch(Dispatchers.IO) {
+                        CodacyCli.getService(
+                            gitInfo.provider,
+                            gitInfo.organization,
+                            gitInfo.repository,
+                            project,
+                            self
+                        ).prepareCli(false)
+                    }
+                }
+
+                initCliButton.addActionListener {
+                    GlobalScope.launch(Dispatchers.IO) {
+                        CodacyCli.getService(
+                            gitInfo.provider,
+                            gitInfo.organization,
+                            gitInfo.repository,
+                            project,
+                            self
+                        ).prepareCli(true)
+                    }
+                }
+
+                val contentFactory = ContentFactory.getInstance()
+                val content = contentFactory.createContent(panel, "", false)
+                toolWindow.contentManager.addContent(content)
+
+            } else {
                 notificationGroup.createNotification(
-                    "Git Provider has not been detected.",
+                    "There was no git repository found.",
                     "Please make sure you have a valid Git repository in the project.",
                     NotificationType.ERROR
-                )
-                    .notify(project)
-                return
+                ).notify(project)
             }
         }
-        else {
-            notificationGroup.createNotification("There was no git repository found.",
-                "Please make sure you have a valid Git repository in the project.",
-                NotificationType.ERROR)
-                .notify(project)
-        }
-
-
-
-        CodacyCli.getService(
-            "",
-            "",
-            "",
-            project,
-            self
-        )
-
-        panel.add(downloadCliButton)
-        panel.add(initCliButton)
-
-        panel.add(cliPresentLabel)
-        panel.add(cliSettingsPresentLabel)
-
-        downloadCliButton.addActionListener {
-            SwingUtilities.invokeLater {
-                runBlocking {
-                    CodacyCli.getService(
-                        "",
-                        "",
-                        "",
-                        project,
-                        self
-                    ).prepareCli(false)
-                }
-            }
-        }
-
-        initCliButton.addActionListener {
-            SwingUtilities.invokeLater {
-                runBlocking {
-                    CodacyCli.getService(
-                        "",
-                        "",
-                        "",
-                        project,
-                        self
-                    ).prepareCli(true)
-                }
-            }
-        }
-
-        val contentFactory = ContentFactory.getInstance()
-        val content = contentFactory.createContent(panel, "", false)
-        toolWindow.contentManager.addContent(content)
     }
 
 
