@@ -1,5 +1,6 @@
 [versions]
 # libraries
+qodana-sarif = "0.2.8"
 annotations = "24.1.0"
 
 # plugins
@@ -9,6 +10,7 @@ gradleIntelliJPlugin = "1.17.0"
 kover = "0.7.5"
 
 [libraries]
+qodana-sarif = { group = "com.jetbrains.qodana", name = "qodana-sarif", version.ref = "qodana-sarif" }
 annotations = { group = "org.jetbrains", name = "annotations", version.ref = "annotations" }
 
 [plugins]
