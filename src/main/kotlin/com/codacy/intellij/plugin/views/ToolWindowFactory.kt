@@ -1,13 +1,17 @@
 package com.codacy.intellij.plugin.views
 
 import com.codacy.intellij.plugin.services.api.models.IssueThreshold
+import com.codacy.intellij.plugin.services.cli.CodacyCli
 import com.codacy.intellij.plugin.services.common.Config
+import com.codacy.intellij.plugin.services.common.GitRemoteParser
 import com.codacy.intellij.plugin.services.common.IconUtils
 import com.codacy.intellij.plugin.services.common.TimeoutManager
+import com.codacy.intellij.plugin.services.git.GitProvider
 import com.codacy.intellij.plugin.services.git.PullRequest
 import com.codacy.intellij.plugin.services.git.RepositoryManager
 import com.intellij.icons.AllIcons
 import com.intellij.ide.BrowserUtil
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.service
@@ -15,6 +19,8 @@ import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.ProjectManager
+import com.intellij.openapi.startup.StartupManager
+import com.intellij.openapi.updateSettings.impl.pluginsAdvertisement.notificationGroup
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
@@ -23,9 +29,15 @@ import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.content.ContentFactory
 import com.intellij.ui.treeStructure.Tree
 import com.sun.net.httpserver.HttpServer
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.FlowLayout
+import java.awt.GridLayout
 import java.awt.event.ActionEvent
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
@@ -40,7 +52,7 @@ import javax.swing.tree.DefaultTreeModel
 
 data class NodeContent(
     val text: String,
-    val icon: Icon?= null,
+    val icon: Icon? = null,
     val filePath: String? = null,
     val tooltip: String? = null
 ) {
@@ -48,7 +60,8 @@ data class NodeContent(
         return text
     }
 }
-class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
+
+class CodacyPullRequestSummaryToolWindowFactory : ToolWindowFactory {
 
     private var listener: Disposable? = null
 
@@ -75,7 +88,8 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
                 if (token.isNotEmpty()) {
                     val repositoryManager = project.service<RepositoryManager>()
                     configService.storeApiToken(token)
-                    val response = "Token received and stored. You can now go back to IntelliJ IDEA and use the Codacy plugin"
+                    val response =
+                        "Token received and stored. You can now go back to IntelliJ IDEA and use the Codacy plugin"
                     exchange.sendResponseHeaders(200, response.length.toLong())
                     exchange.responseBody.use { os -> os.write(response.toByteArray()) }
                     exchange.close()
@@ -112,7 +126,6 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
         }
         val panel = JPanel(BorderLayout())
 
-
         val buttonsPanel = JPanel(FlowLayout(FlowLayout.LEFT))
 
         val signInButton = JButton("Sign in")
@@ -132,7 +145,6 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
             }
         }
         buttonsPanel.add(initConfigButton, BorderLayout.NORTH)
-
         panel.add(buttonsPanel, BorderLayout.NORTH)
 
         val nodeContent = NodeContent(
@@ -155,7 +167,7 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
                 rootNode.removeAllChildren()
                 repositoryManager.pullRequest?.refresh()
             }
-            panel.add(refreshButton, BorderLayout.NORTH)
+            panel.add(refreshButton, BorderLayout.SOUTH)
 
             listener?.dispose()
             listener = repositoryManager.onDidUpdatePullRequest {
@@ -248,7 +260,7 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
                 pr.prWithAnalysis?.isUpToStandards == false -> AllIcons.General.BalloonError
                 else -> AllIcons.General.BalloonInformation
             },
-            filePath=null
+            filePath = null
         )
         val parentNode = DefaultMutableTreeNode(nodeContent)
         rootNode.add(parentNode)
@@ -264,7 +276,8 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
             parentNode.add(node)
         }
 
-        if (pr.gates?.qualityGate?.securityIssueThreshold?.let { it > 0 } == true && (pr.prWithAnalysis?.newIssues ?: 0) > 0) {
+        if (pr.gates?.qualityGate?.securityIssueThreshold?.let { it > 0 } == true && (pr.prWithAnalysis?.newIssues
+                ?: 0) > 0) {
             val gate: Int = pr.gates!!.qualityGate.securityIssueThreshold
             nodeContent = NodeContent(
                 text = "Security issues > $gate",
@@ -275,23 +288,25 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
             parentNode.add(node)
         }
 
-        if (pr.gates?.qualityGate?.complexityThreshold?.let { it > 0 } == true && (pr.prWithAnalysis?.newIssues ?: 0) > 0) {
+        if (pr.gates?.qualityGate?.complexityThreshold?.let { it > 0 } == true && (pr.prWithAnalysis?.newIssues
+                ?: 0) > 0) {
             val gate: Int = pr.gates!!.qualityGate.complexityThreshold
             nodeContent = NodeContent(
-                text="Complexity > $gate",
-                icon=AllIcons.Toolwindows.ToolWindowHierarchy,
-                filePath=null
+                text = "Complexity > $gate",
+                icon = AllIcons.Toolwindows.ToolWindowHierarchy,
+                filePath = null
             )
             val node = DefaultMutableTreeNode(nodeContent)
             parentNode.add(node)
         }
 
-        if (pr.gates?.qualityGate?.duplicationThreshold?.let { it > 0 } == true && (pr.prWithAnalysis?.newIssues ?: 0) > 0) {
+        if (pr.gates?.qualityGate?.duplicationThreshold?.let { it > 0 } == true && (pr.prWithAnalysis?.newIssues
+                ?: 0) > 0) {
             val gate: Int = pr.gates!!.qualityGate.duplicationThreshold
             nodeContent = NodeContent(
-                text="Duplication > $gate",
-                icon=AllIcons.Actions.Copy,
-                filePath=null
+                text = "Duplication > $gate",
+                icon = AllIcons.Actions.Copy,
+                filePath = null
             )
             val node = DefaultMutableTreeNode(nodeContent)
             parentNode.add(node)
@@ -494,6 +509,7 @@ class CodacyPullRequestSummaryToolWindowFactory: ToolWindowFactory {
     }
 
 }
+
 class CustomIconTreeCellRenderer : DefaultTreeCellRenderer() {
     override fun getTreeCellRendererComponent(
         tree: JTree,
@@ -512,5 +528,105 @@ class CustomIconTreeCellRenderer : DefaultTreeCellRenderer() {
         }
         if (!selected) backgroundNonSelectionColor = UIManager.getColor("Panel.background")
         return this
+    }
+}
+
+class CodacyCliToolWindowFactory : ToolWindowFactory {
+
+    val panel = JPanel(GridLayout(2, 2))
+    val cliPresentLabel = JLabel("Codacy CLI is not installed.")
+    val cliSettingsPresentLabel = JLabel("Codacy CLI is not initialized.")
+    val downloadCliButton = JButton("Download CLI")
+    val initCliButton = JButton("Initialize CLI")
+
+    @OptIn(DelicateCoroutinesApi::class)
+    override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
+        val self = this
+
+        StartupManager.getInstance(project).runWhenProjectIsInitialized {
+            val gitProvider = GitProvider.getRepository(project)
+            if (gitProvider != null) {
+                val remote = gitProvider.remotes.firstOrNull()
+
+                if (remote == null) {
+                    notificationGroup.createNotification(
+                        "No remote found.",
+                        "Please make sure you have a valid Git remote in the project.",
+                        NotificationType.ERROR
+                    ).notify(project)
+                    return@runWhenProjectIsInitialized
+                }
+
+                val gitInfo = GitRemoteParser.parseGitRemote(remote.firstUrl!!)
+
+
+                CodacyCli.getService(
+                    gitInfo.provider,
+                    gitInfo.organization,
+                    gitInfo.repository,
+                    project,
+                    self
+                )
+
+                panel.add(downloadCliButton)
+                panel.add(initCliButton)
+                panel.add(cliPresentLabel)
+                panel.add(cliSettingsPresentLabel)
+
+                downloadCliButton.addActionListener {
+                    GlobalScope.launch(Dispatchers.IO) {
+                        CodacyCli.getService(
+                            gitInfo.provider,
+                            gitInfo.organization,
+                            gitInfo.repository,
+                            project,
+                            self
+                        ).prepareCli(false)
+                    }
+                }
+
+                initCliButton.addActionListener {
+                    GlobalScope.launch(Dispatchers.IO) {
+                        CodacyCli.getService(
+                            gitInfo.provider,
+                            gitInfo.organization,
+                            gitInfo.repository,
+                            project,
+                            self
+                        ).prepareCli(true)
+                    }
+                }
+
+                val contentFactory = ContentFactory.getInstance()
+                val content = contentFactory.createContent(panel, "", false)
+                toolWindow.contentManager.addContent(content)
+
+            } else {
+                notificationGroup.createNotification(
+                    "There was no git repository found.",
+                    "Please make sure you have a valid Git repository in the project.",
+                    NotificationType.ERROR
+                ).notify(project)
+            }
+        }
+    }
+
+
+    fun updateCliStatus(isShellFilePresent: Boolean, isSettingsPresent: Boolean) {
+        if (isShellFilePresent) {
+            cliPresentLabel.text = "Codacy CLI is installed."
+            cliPresentLabel.icon = AllIcons.General.InspectionsOK
+        } else {
+            cliPresentLabel.text = "Codacy CLI is not installed."
+            cliPresentLabel.icon = AllIcons.General.BalloonError
+        }
+
+        if (isSettingsPresent) {
+            cliSettingsPresentLabel.text = "Codacy CLI is initialized."
+            cliSettingsPresentLabel.icon = AllIcons.General.InspectionsOK
+        } else {
+            cliSettingsPresentLabel.text = "Codacy CLI is not initialized."
+            cliSettingsPresentLabel.icon = AllIcons.General.BalloonError
+        }
     }
 }
