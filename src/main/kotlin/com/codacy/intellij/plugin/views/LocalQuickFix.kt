@@ -25,6 +25,7 @@ class ShowIssueDetailsQuickFix(private val issue: IssueDetails) : LocalQuickFix 
         val parser = Parser.builder(options).build()
         val renderer = HtmlRenderer.builder(options).build()
         val document = parser.parse(markdown)
+
         return renderer.render(document)
     }
 
@@ -34,8 +35,6 @@ class ShowIssueDetailsQuickFix(private val issue: IssueDetails) : LocalQuickFix 
         GlobalScope.launch {
             try {
                 val pattern = api.getPattern(issue.commitIssue.toolInfo.uuid, issue.commitIssue.patternInfo.id).data
-//            TODO: remove this call, it should be in the service state
-                api.listTools()
                 val tool = api.getTool(issue.commitIssue.toolInfo.uuid)
                 val curatedExplanation = pattern.explanation?.replace(Regex("^#{1,2}\\s.*\\n"), "")
                 ApplicationManager.getApplication().invokeLater {

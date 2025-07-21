@@ -7,14 +7,6 @@ class Logger {
     companion object {
         private val log = IntelliJLogger.getInstance(Logger::class.java)
 
-//        fun trace(message: String, component: String? = null) {
-//            log.debug(logString("TRACE: $message", component))
-//        }
-//
-//        fun debug(message: String, component: String? = null) {
-//            log.debug(logString("DEBUG: $message", component))
-//        }
-
         fun info(message: String, component: String? = null) {
             log.info(logString(message, component))
         }
