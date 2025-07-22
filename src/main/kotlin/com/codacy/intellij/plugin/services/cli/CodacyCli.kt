@@ -25,6 +25,13 @@ import kotlin.io.path.isDirectory
 
 abstract class CodacyCli() {
 
+    //In the vscode extension, tools param is currently not used
+    abstract suspend fun analyze(file: String?, tool: String? = null): List<ProcessedSarifResult>?
+
+    abstract suspend fun prepareCli(autoInstall: Boolean = false)
+
+    abstract suspend fun installCli(): String?
+
     var cliCommand: String = ""
 
     lateinit var provider: String
@@ -42,13 +49,6 @@ abstract class CodacyCli() {
     protected val notificationManager = NotificationGroupManager
         .getInstance()
         .getNotificationGroup("CodacyNotifications")
-
-    //In the vscode extension, tools param is currently not used
-    abstract suspend fun analyze(file: String?, tool: String? = null): List<ProcessedSarifResult>?
-
-    abstract suspend fun prepareCli(autoInstall: Boolean = false)
-
-    abstract suspend fun installCli(): String?
 
     fun initService(
         provider: String,
@@ -73,7 +73,7 @@ abstract class CodacyCli() {
         val isSettingsPresent = isCodacySettingsPresent()
         val isCliShellFilePresent = isCliShellFilePresent()
 
-        if(isSettingsPresent && isCliShellFilePresent) {
+        if (isSettingsPresent && isCliShellFilePresent) {
             updateWidgetState(CodacyCliStatusBarWidget.State.INITIALIZED)
         } else if (isCliShellFilePresent) {
             updateWidgetState(CodacyCliStatusBarWidget.State.INSTALLED)

@@ -1,7 +1,6 @@
 package com.codacy.intellij.plugin.services.cli.impl
 
 import com.codacy.intellij.plugin.services.cli.CodacyCli
-import com.codacy.intellij.plugin.views.CodacyCliStatusBarWidget
 import com.codacy.intellij.plugin.services.cli.models.ProcessedSarifResult
 import com.codacy.intellij.plugin.services.cli.models.Region
 import com.codacy.intellij.plugin.services.cli.models.RuleInfo
@@ -13,6 +12,7 @@ import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_V2
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_DIRECTORY_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_TOOLS_CONFIGS_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_YAML_NAME
+import com.codacy.intellij.plugin.views.CodacyCliStatusBarWidget
 import com.intellij.notification.NotificationType
 import com.intellij.util.io.exists
 import com.jetbrains.qodana.sarif.SarifUtil
@@ -50,8 +50,12 @@ abstract class MacOsCliImpl : CodacyCli() {
             } else {
                 updateWidgetState(CodacyCliStatusBarWidget.State.ERROR)
 
-                //TODO error notification here
-
+                notificationManager
+                    .createNotification(
+                        "Something unexpected went wrong when assigning codacy CLI command",
+                        NotificationType.ERROR
+                    )
+                    .notify(project)
                 return
             }
         } else {
@@ -174,12 +178,12 @@ abstract class MacOsCliImpl : CodacyCli() {
             try {
                 execAsync("$cliCommand init", initParams)
             } catch (error: Exception) {
-//                updateWidgetState(CodacyCliStatusBarWidget.State.ERROR)
-//                throw RuntimeException("Failed to initialize CLI: $error")
-                return false //TODO error message?
+                notificationManager
+                    .createNotification("Codacy CLI initialize has failed", NotificationType.ERROR)
+                    .notify(project)
+                return false
             }
 
-            // install dependencies
             val result = installDependencies()
             if (!result) {
                 return false
@@ -227,19 +231,20 @@ abstract class MacOsCliImpl : CodacyCli() {
 
 
     override suspend fun analyze(file: String?, tool: String?): List<ProcessedSarifResult>? {
-        //TODO handle if it were to fail
         prepareCli(true)
-
-        notificationManager
-            .createNotification("TEST", "analysizing", NotificationType.INFORMATION)
-            .notify(project)
 
         updateWidgetState(CodacyCliStatusBarWidget.State.ANALYZING)
 
         if (cliCommand.isBlank()) {
-            //TODO check
             updateWidgetState(CodacyCliStatusBarWidget.State.INITIALIZED)
-            throw Exception("CLI command not found. Please install the CLI first.")
+
+            notificationManager
+                .createNotification(
+                    "CLI command not found. Please install the CLI first.",
+                    NotificationType.ERROR
+                )
+                .notify(project)
+            return null
         }
 
         try {
