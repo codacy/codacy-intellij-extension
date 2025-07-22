@@ -1,14 +1,19 @@
 package com.codacy.intellij.plugin.views
 
+import com.codacy.intellij.plugin.services.cli.CodacyCli
+import com.intellij.icons.AllIcons
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.popup.JBPopupFactory
+import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.wm.StatusBar
 import com.intellij.openapi.wm.StatusBarWidget
 import com.intellij.ui.AnimatedIcon
 import com.intellij.util.Consumer
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import java.awt.event.MouseEvent
 import javax.swing.Icon
-import javax.swing.JLabel
 
 class CodacyCliStatusBarWidget(private val project: Project) : StatusBarWidget, StatusBarWidget.IconPresentation {
 
@@ -17,7 +22,12 @@ class CodacyCliStatusBarWidget(private val project: Project) : StatusBarWidget, 
 
         data object INSTALLED : State {
             override fun toString() = "Installed"
-            override val icon: Icon = JLabel("✔").icon
+            override val icon: Icon = AllIcons.General.SuccessDialog
+        }
+
+        data object INITIALIZED : State {
+            override fun toString() = "Initialized"
+            override val icon: Icon = AllIcons.General.Information
         }
 
         data object INSTALLING : State {
@@ -32,21 +42,25 @@ class CodacyCliStatusBarWidget(private val project: Project) : StatusBarWidget, 
 
         data object ERROR : State {
             override fun toString() = "Error"
-            override val icon: Icon = JLabel("✖").icon
+            override val icon: Icon = AllIcons.General.BalloonError
         }
 
-        data object INIT : State {
-            override fun toString() = "Init"
-            override val icon: Icon = JLabel("...").icon
+        data object NOT_INSTALLED : State {
+            override fun toString() = "Not Installed"
+            override val icon: Icon = AllIcons.General.ErrorDialog
         }
     }
 
-    private var state: State = State.INIT
-    private var statusBar: StatusBar? = null
+    var statusBar: StatusBar? = null
 
-    override fun ID(): String = "MyPluginStatusWidget"
+    private var state: State = State.NOT_INSTALLED
+
+    override fun ID(): String = "com.codacy.intellij.plugin.views.CodacyCliStatusBarWidget"
 
     override fun install(statusBar: StatusBar) {
+        CodacyCli.Companion.getService(project)
+            .registerWidget(this)
+
         this.statusBar = statusBar
     }
 
@@ -54,38 +68,57 @@ class CodacyCliStatusBarWidget(private val project: Project) : StatusBarWidget, 
 
     override fun getPresentation(): StatusBarWidget.WidgetPresentation = this
 
-    override fun getIcon(): Icon {
-        return when (state) {
-            is State.INSTALLED -> State.INSTALLED.icon
-            is State.INSTALLING -> State.INSTALLING.icon
-            is State.ANALYZING -> State.ANALYZING.icon
-            is State.ERROR -> State.ERROR.icon
-            is State.INIT -> State.INIT.icon
-            else -> State.INIT.icon
-        }
-    }
-
+    override fun getIcon(): Icon = state.icon
 
     override fun getTooltipText(): String {
         return when (state) {
-            is State.INSTALLED -> "Codacy CLI is installed and ready to use."
-            is State.INSTALLING -> "Codacy CLI is currently being installed."
-            is State.ANALYZING -> "Codacy CLI is analyzing your code."
-            is State.ERROR -> "An error occurred with Codacy CLI."
-            is State.INIT -> "Codacy CLI is initializing."
-            else -> "Unknown state."
+            is State.INSTALLED -> "Codacy CLI is installed, waiting to be initialized"
+            is State.INSTALLING -> "Codacy CLI is being installed, please wait..."
+            is State.INITIALIZED -> "Codacy CLI is initialized and ready to use"
+            is State.ANALYZING -> "Codacy CLI is analyzing your code, please wait..."
+            is State.ERROR -> "An error occurred with Codacy CLI: $state"
+            is State.NOT_INSTALLED -> "Codacy CLI is not installed, please install it"
+            else -> "Something went wrong"
         }
     }
 
-    fun updateState(newState: State) {
-        state = newState
-        statusBar?.updateWidget(ID())
+    @OptIn(DelicateCoroutinesApi::class)
+    override fun getClickConsumer(): Consumer<MouseEvent?>? {
+        return Consumer { event: MouseEvent? ->
+
+            val message = when (state) {
+                is State.ERROR, State.NOT_INSTALLED -> Messages.showYesNoDialog(
+                    project,
+                    "For CLI to work, you need to install it",
+                    "CLI Not Installed",
+                    Messages.getYesButton(),
+                    Messages.getNoButton(),
+                    Messages.getQuestionIcon()
+                )
+                is State.INSTALLED -> Messages.showYesNoDialog(
+                    project,
+                    "CLI is installed, but not initialized. Would you like to initialize it now?",
+                    "Partial CLI Installation",
+                    Messages.getYesButton(),
+                    Messages.getNoButton(),
+                    Messages.getQuestionIcon()
+                )
+                else -> null
+            }
+
+            if (message != null) {
+                if (message == Messages.YES) {
+                    GlobalScope.launch(Dispatchers.IO) {
+                        CodacyCli.Companion.getService(project).prepareCli(true)
+                    }
+                }
+            }
+        }
     }
 
-    //TODO might not be needed
-    override fun getClickConsumer(): Consumer<MouseEvent>? = Consumer { e ->
-        JBPopupFactory.getInstance()
-            .createMessage("Current step: $state")
-            .showInCenterOf(e.component)
+
+    fun updateStatus(state: State) {
+        this.state = state
+        statusBar?.updateWidget(ID())
     }
 }

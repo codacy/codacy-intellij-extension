@@ -1,12 +1,9 @@
 package com.codacy.intellij.plugin.services.common
 
-import com.codacy.intellij.plugin.services.git.GitProvider
-import com.intellij.openapi.components.service
 import com.intellij.credentialStore.CredentialAttributes
 import com.intellij.credentialStore.Credentials
 import com.intellij.ide.passwordSafe.PasswordSafe
 import com.intellij.openapi.components.*
-import com.intellij.openapi.project.Project
 
 @State(
     name = "codacy",
@@ -43,9 +40,6 @@ class Config : PersistentStateComponent<Config.State> {
 
         var availableCliVersions: List<String> = listOf(),
         var selectedCliVersion: String = "",
-//        var gitProvider: String? = null,
-//        var gitOrganization: String? = null,
-//        var gitRepository: String? = null
     )
 
     override fun getState(): State = state

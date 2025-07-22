@@ -12,10 +12,8 @@ import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_TOOLS_
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_YAML_NAME
 import com.codacy.intellij.plugin.services.common.GitRemoteParser
 import com.codacy.intellij.plugin.services.git.GitProvider
-import com.codacy.intellij.plugin.views.CodacyCliToolWindowFactory
-import com.intellij.icons.AllIcons
+import com.codacy.intellij.plugin.views.CodacyCliStatusBarWidget
 import com.intellij.notification.NotificationGroupManager
-import com.intellij.notification.NotificationType
 import com.intellij.openapi.project.Project
 import com.intellij.util.io.isFile
 import kotlinx.coroutines.Dispatchers
@@ -39,7 +37,6 @@ abstract class CodacyCli() {
         private set
 
     protected var codacyStatusBarWidget: CodacyCliStatusBarWidget? = null
-    private var codacyCliToolWindowFactory: CodacyCliToolWindowFactory? = null
 
     private val config = Config.instance
     protected val notificationManager = NotificationGroupManager
@@ -65,13 +62,9 @@ abstract class CodacyCli() {
             this.rootPath = rootPath
             isServiceInstantiated = true
         }
-
-        //TODO check if it worked
-//        updateWidgetState(CodacyCliStatusBarWidget.State.NOT_INSTALLED)
     }
 
     companion object {
-        //TODO I'd prefer this version so lets see how well it works
         fun getService(project: Project): CodacyCli {
             val gitProvider = GitProvider.getRepository(project)
                 ?: throw IllegalStateException("No Git provider found for the project")
@@ -90,7 +83,7 @@ abstract class CodacyCli() {
         }
 
 
-        fun getService(
+        private fun getService(
             provider: String,
             organization: String,
             repository: String,
@@ -119,17 +112,14 @@ abstract class CodacyCli() {
                     cli
                 }
             }
-
             return cli
         }
-
-
     }
 
     suspend fun execAsync(
         command: String,
         args: Map<String, String>? = null
-    ): kotlin.Result<Pair<String, String>> = withContext(Dispatchers.IO) {
+    ): Result<Pair<String, String>> = withContext(Dispatchers.IO) {
         // Stringify the args
         val argsString = args?.entries
             ?.joinToString(" ") { "--${it.key} ${it.value}" }
@@ -139,14 +129,6 @@ abstract class CodacyCli() {
         val cmd = "$command $argsString".trim().replace(Regex("[;&|`$]"), "")
 
         try {
-
-            notificationManager.createNotification("test command: ", "$cmd", NotificationType.INFORMATION)
-                .notify(project)
-
-
-            notificationManager.createNotification("test rootPath: ", "$rootPath", NotificationType.INFORMATION)
-                .notify(project)
-
             val program = ProcessBuilder(cmd.split(" "))
                 .directory(File(rootPath))
                 .redirectErrorStream(false)
@@ -159,12 +141,12 @@ abstract class CodacyCli() {
             process.waitFor()
 
             if (process.exitValue() != 0) {
-                kotlin.Result.failure(Exception(stderr.ifEmpty { "Unknown error" }))
+                Result.failure(Exception(stderr.ifEmpty { "Unknown error" }))
             } else {
-                kotlin.Result.success(Pair(stdout, stderr))
+                Result.success(Pair(stdout, stderr))
             }
         } catch (e: Exception) {
-            kotlin.Result.failure(e)
+            Result.failure(e)
         }
     }
 
@@ -172,17 +154,11 @@ abstract class CodacyCli() {
         this.codacyStatusBarWidget = widget
     }
 
-    fun registerToolWindowFactory(
-        cliWindowFactory: CodacyCliToolWindowFactory
-    ) {
-        this.codacyCliToolWindowFactory = cliWindowFactory
-    }
-
     fun updateWidgetState(state: CodacyCliStatusBarWidget.State) {
         codacyStatusBarWidget?.updateStatus(state)
     }
 
-    //TODO in vscode, tools param is currently not used
+    //In the vscode extension, tools param is currently not used
     abstract suspend fun analyze(file: String?, tool: String? = null): List<ProcessedSarifResult>?
 
     abstract suspend fun prepareCli(autoInstall: Boolean = false)
@@ -190,20 +166,17 @@ abstract class CodacyCli() {
     abstract suspend fun installCli(): String?
 
 
-    fun isCodacyDirectoryPresent(project: Project): Boolean {
-        val rootPath = project.basePath ?: return false
+    fun isCodacyDirectoryPresent(): Boolean {
         val codacyDir = Paths.get(rootPath, CODACY_DIRECTORY_NAME)
         return codacyDir.exists() && codacyDir.isDirectory()
     }
 
-    fun isCliShellFilePresent(project: Project): Boolean {
-        val rootPath = project.basePath ?: return false
+    fun isCliShellFilePresent(): Boolean {
         val cliFile = Paths.get(rootPath, CODACY_DIRECTORY_NAME, CODACY_CLI_SHELL_NAME)
         return cliFile.exists() && cliFile.isFile()
     }
 
-    fun isCodacySettingsPresent(project: Project): Boolean {
-        val rootPath = project.basePath ?: return false
+    fun isCodacySettingsPresent(): Boolean {
         val codacyDirectory = Paths.get(rootPath, CODACY_DIRECTORY_NAME)
 
         val gitignoreFile = codacyDirectory.resolve(CODACY_GITIGNORE_NAME)

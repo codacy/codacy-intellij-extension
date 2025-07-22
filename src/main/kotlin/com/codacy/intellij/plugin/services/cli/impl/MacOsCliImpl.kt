@@ -1,7 +1,7 @@
 package com.codacy.intellij.plugin.services.cli.impl
 
 import com.codacy.intellij.plugin.services.cli.CodacyCli
-import com.codacy.intellij.plugin.services.cli.CodacyCliStatusBarWidget
+import com.codacy.intellij.plugin.views.CodacyCliStatusBarWidget
 import com.codacy.intellij.plugin.services.cli.models.ProcessedSarifResult
 import com.codacy.intellij.plugin.services.cli.models.Region
 import com.codacy.intellij.plugin.services.cli.models.RuleInfo
@@ -14,7 +14,6 @@ import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_DIRECT
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_TOOLS_CONFIGS_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_YAML_NAME
 import com.intellij.notification.NotificationType
-import com.intellij.openapi.project.Project
 import com.intellij.util.io.exists
 import com.jetbrains.qodana.sarif.SarifUtil
 import com.jetbrains.qodana.sarif.model.Run
@@ -27,18 +26,10 @@ abstract class MacOsCliImpl : CodacyCli() {
     private val config = Config.instance
     private var accountToken = config.storedApiToken
 
-    fun findCliCommand(project: Project): String? {
-        val fullPath = Paths.get(rootPath, CODACY_DIRECTORY_NAME, CODACY_CLI_SHELL_NAME).toAbsolutePath()
-
-        return if (isCliShellFilePresent(project)) {
-            fullPath.toString()
-        } else null
-    }
-
     override suspend fun prepareCli(autoInstall: Boolean) {
-        var _cliCommand = findCliCommand(project)
+        var _cliCommand = findCliCommand()
 
-        if (/*cliCommand.isBlank() &&*/ !isCliShellFilePresent(project)) {
+        if (!isCliShellFilePresent()) {
             updateWidgetState(CodacyCliStatusBarWidget.State.INSTALLING)
 
             if (_cliCommand == null) {
@@ -47,19 +38,20 @@ abstract class MacOsCliImpl : CodacyCli() {
                     updateWidgetState(CodacyCliStatusBarWidget.State.ERROR)
                     return
                 }
-                notificationManager.createNotification("STATE", "INSTALLED", NotificationType.INFORMATION)
-                    .notify(project)
             }
 
             updateWidgetState(CodacyCliStatusBarWidget.State.INSTALLED)
             cliCommand = _cliCommand
-        } else if(cliCommand.isBlank() && isCliShellFilePresent(project)) {
+        } else if (cliCommand.isBlank() && isCliShellFilePresent()) {
             updateWidgetState(CodacyCliStatusBarWidget.State.INSTALLING)
             if (_cliCommand != null) {
                 updateWidgetState(CodacyCliStatusBarWidget.State.INSTALLED)
                 cliCommand = _cliCommand
             } else {
                 updateWidgetState(CodacyCliStatusBarWidget.State.ERROR)
+
+                //TODO error notification here
+
                 return
             }
         } else {
@@ -68,7 +60,7 @@ abstract class MacOsCliImpl : CodacyCli() {
             }
         }
 
-        if (autoInstall && !isCodacySettingsPresent(project)) {
+        if (autoInstall && !isCodacySettingsPresent()) {
             updateWidgetState(CodacyCliStatusBarWidget.State.INSTALLING)
             val initRes = initialize()
             if (initRes) {
@@ -76,7 +68,7 @@ abstract class MacOsCliImpl : CodacyCli() {
             } else {
                 updateWidgetState(CodacyCliStatusBarWidget.State.ERROR)
             }
-        } else if (isCodacySettingsPresent(project)) {
+        } else if (isCodacySettingsPresent()) {
             updateWidgetState(CodacyCliStatusBarWidget.State.INITIALIZED)
         }
 
@@ -85,7 +77,7 @@ abstract class MacOsCliImpl : CodacyCli() {
     override suspend fun installCli(): String? {
         val codacyConfigFullPath = Paths.get(rootPath, CODACY_DIRECTORY_NAME)
 
-        if (!isCodacyDirectoryPresent(project)) {
+        if (!isCodacyDirectoryPresent()) {
             codacyConfigFullPath.toFile().mkdirs()
         }
 
@@ -110,7 +102,7 @@ abstract class MacOsCliImpl : CodacyCli() {
         }
     }
 
-    fun installDependencies(): Boolean {
+    private fun installDependencies(): Boolean {
         val program = ProcessBuilder(cliCommand, "install")
             .redirectErrorStream(true)
         program.environment()[CODACY_CLI_V2_VERSION_ENV_NAME] = config.cliVersion
@@ -134,6 +126,14 @@ abstract class MacOsCliImpl : CodacyCli() {
             .createNotification("Dependencies installed successfully", NotificationType.INFORMATION)
             .notify(project)
         return true
+    }
+
+    private fun findCliCommand(): String? {
+        val fullPath = Paths.get(rootPath, CODACY_DIRECTORY_NAME, CODACY_CLI_SHELL_NAME).toAbsolutePath()
+
+        return if (isCliShellFilePresent()) {
+            fullPath.toString()
+        } else null
     }
 
     private suspend fun initialize(): Boolean {
@@ -201,7 +201,6 @@ abstract class MacOsCliImpl : CodacyCli() {
                 .notify(project)
         }
 
-//        updateWidgetState(CodacyCliStatusBarWidget.State.INSTALLED)
         return true
     }
 
@@ -245,7 +244,7 @@ abstract class MacOsCliImpl : CodacyCli() {
             val params = if (tool != null) mapOf("tool" to tool) else emptyMap()
             val execResult = execAsync(command, params)
 
-            val (stdout, stderr) = execResult.getOrElse { throw it }
+            val (stdout, _) = execResult.getOrElse { throw it }
 
             val jsonMatch = Regex("""(\{[\s\S]*\}|\[[\s\S]*\])""").find(stdout)?.value
 
@@ -253,12 +252,6 @@ abstract class MacOsCliImpl : CodacyCli() {
                 ?.let { SarifUtil.readReport(StringReader(it)).runs }
                 ?.let(::processSarifResults)
                 ?: emptyList()
-
-            notificationManager.createNotification(
-                "Codacy CLI analyzed processed FINISH",
-                results.toString(),
-                NotificationType.INFORMATION
-            ).notify(project)
 
             return results
         } catch (error: Exception) {
@@ -296,7 +289,7 @@ abstract class MacOsCliImpl : CodacyCli() {
                                 shortDescription = it.shortDescription?.text
                             )
                         },
-                        level = level.toString(), //TODO check if correct
+                        level = level.toString(),
                         message = message,
                         filePath = filePath,
                         region = region
