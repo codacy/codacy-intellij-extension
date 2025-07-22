@@ -1,6 +1,7 @@
 package com.codacy.intellij.plugin.views
 
 import com.codacy.intellij.plugin.services.cli.CodacyCli
+import com.codacy.intellij.plugin.services.common.IconUtils
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
@@ -22,12 +23,12 @@ class CodacyCliStatusBarWidget(private val project: Project) : StatusBarWidget, 
 
         data object INSTALLED : State {
             override fun toString() = "Installed"
-            override val icon: Icon = AllIcons.General.SuccessDialog
+            override val icon: Icon = AllIcons.General.Information
         }
 
         data object INITIALIZED : State {
             override fun toString() = "Initialized"
-            override val icon: Icon = AllIcons.General.Information
+            override val icon: Icon = IconUtils.CodacyIcon
         }
 
         data object INSTALLING : State {
@@ -42,12 +43,12 @@ class CodacyCliStatusBarWidget(private val project: Project) : StatusBarWidget, 
 
         data object ERROR : State {
             override fun toString() = "Error"
-            override val icon: Icon = AllIcons.General.BalloonError
+            override val icon: Icon = AllIcons.General.ErrorDialog
         }
 
         data object NOT_INSTALLED : State {
             override fun toString() = "Not Installed"
-            override val icon: Icon = AllIcons.General.ErrorDialog
+            override val icon: Icon = AllIcons.General.Information
         }
     }
 

@@ -43,6 +43,13 @@ abstract class CodacyCli() {
         .getInstance()
         .getNotificationGroup("CodacyNotifications")
 
+    //In the vscode extension, tools param is currently not used
+    abstract suspend fun analyze(file: String?, tool: String? = null): List<ProcessedSarifResult>?
+
+    abstract suspend fun prepareCli(autoInstall: Boolean = false)
+
+    abstract suspend fun installCli(): String?
+
     fun initService(
         provider: String,
         organization: String,
@@ -61,6 +68,17 @@ abstract class CodacyCli() {
             this.project = project
             this.rootPath = rootPath
             isServiceInstantiated = true
+        }
+
+        val isSettingsPresent = isCodacySettingsPresent()
+        val isCliShellFilePresent = isCliShellFilePresent()
+
+        if(isSettingsPresent && isCliShellFilePresent) {
+            updateWidgetState(CodacyCliStatusBarWidget.State.INITIALIZED)
+        } else if (isCliShellFilePresent) {
+            updateWidgetState(CodacyCliStatusBarWidget.State.INSTALLED)
+        } else {
+            updateWidgetState(CodacyCliStatusBarWidget.State.NOT_INSTALLED)
         }
     }
 
@@ -150,6 +168,7 @@ abstract class CodacyCli() {
         }
     }
 
+
     fun registerWidget(widget: CodacyCliStatusBarWidget) {
         this.codacyStatusBarWidget = widget
     }
@@ -157,14 +176,6 @@ abstract class CodacyCli() {
     fun updateWidgetState(state: CodacyCliStatusBarWidget.State) {
         codacyStatusBarWidget?.updateStatus(state)
     }
-
-    //In the vscode extension, tools param is currently not used
-    abstract suspend fun analyze(file: String?, tool: String? = null): List<ProcessedSarifResult>?
-
-    abstract suspend fun prepareCli(autoInstall: Boolean = false)
-
-    abstract suspend fun installCli(): String?
-
 
     fun isCodacyDirectoryPresent(): Boolean {
         val codacyDir = Paths.get(rootPath, CODACY_DIRECTORY_NAME)

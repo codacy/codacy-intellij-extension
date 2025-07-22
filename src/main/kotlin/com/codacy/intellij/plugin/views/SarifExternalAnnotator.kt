@@ -11,6 +11,11 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiFile
 import kotlinx.coroutines.runBlocking
+import java.util.concurrent.ConcurrentHashMap
+
+
+private val resultCache = ConcurrentHashMap<Int, List<ProcessedSarifResult>?>()
+private val runningHashes = ConcurrentHashMap.newKeySet<Int>()
 
 class SarifExternalAnnotator : ExternalAnnotator<FileContentInfo, List<ProcessedSarifResult>>() {
 
@@ -21,28 +26,43 @@ class SarifExternalAnnotator : ExternalAnnotator<FileContentInfo, List<Processed
     }
 
     override fun doAnnotate(collectedInfo: FileContentInfo?): List<ProcessedSarifResult>? {
-        val file = collectedInfo?.file
-        val cli = CodacyCli.Companion.getService(file?.project ?: return null)
+        if (collectedInfo == null) return null
 
-        return runBlocking {
-            val result = cli.analyze(file.virtualFile.path, null)
-            return@runBlocking result
+        val hash = collectedInfo.contentHash
+        resultCache[hash]?.let { return it }
+
+        if (!runningHashes.add(hash)) return null
+
+        try {
+            val file = collectedInfo.file
+            val cli = CodacyCli.getService(file.project)
+            val result = runBlocking {
+                cli.analyze(file.virtualFile.path, null)
+            }
+            resultCache[hash] = result
+            return result
+        } finally {
+            runningHashes.remove(hash)
         }
     }
 
     override fun apply(file: PsiFile, annotationResult: List<ProcessedSarifResult>?, holder: AnnotationHolder) {
         val document = file.viewProvider.document ?: return
 
-        for (result in annotationResult ?: emptyList()) {
+        for (result in annotationResult.orEmpty()) {
+            val region = result.region ?: continue
+
             val textRange = convertRegionToTextRange(
                 document,
-                result.region!!.startLine!!, result.region.startColumn!!,
-                result.region.endLine!!, result.region.endColumn!!
+                region.startLine!!, region.startColumn!!,
+                region.endLine!!, region.endColumn!!
             )
 
-            holder.newAnnotation(HighlightSeverity.ERROR, result.message)
-                .range(textRange)
-                .create()
+            if (textRange.isEmpty.not()) {
+                holder.newAnnotation(HighlightSeverity.ERROR, result.message)
+                    .range(textRange)
+                    .create()
+            }
         }
     }
 
@@ -53,12 +73,12 @@ class SarifExternalAnnotator : ExternalAnnotator<FileContentInfo, List<Processed
         endLine: Int,
         endCol: Int
     ): TextRange {
-        try {
-            val startOffset: Int = document.getLineStartOffset(startLine - 1) + (startCol - 1)
-            val endOffset: Int = document.getLineStartOffset(endLine - 1) + (endCol - 1)
-            return TextRange(startOffset, endOffset)
+        return try {
+            val startOffset = document.getLineStartOffset(startLine - 1) + (startCol - 1)
+            val endOffset = document.getLineStartOffset(endLine - 1) + (endCol - 1)
+            TextRange(startOffset, endOffset)
         } catch (e: IndexOutOfBoundsException) {
-            return TextRange.EMPTY_RANGE
+            TextRange.EMPTY_RANGE
         }
     }
 
