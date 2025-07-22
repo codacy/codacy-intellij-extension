@@ -13,10 +13,10 @@ import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_YAML_N
 import com.codacy.intellij.plugin.services.common.GitRemoteParser
 import com.codacy.intellij.plugin.services.git.GitProvider
 import com.codacy.intellij.plugin.views.CodacyCliStatusBarWidget
-import com.codacy.intellij.plugin.views.CodacyCliToolWindowFactory
-import com.intellij.notification.NotificationGroup
 import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.updateSettings.impl.pluginsAdvertisement.notificationGroup
 import com.intellij.util.io.isFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -108,24 +108,18 @@ abstract class CodacyCli() {
             organization: String,
             repository: String,
             project: Project,
-            notificationGroup: NotificationGroup,
-            cliWindowFactory: CodacyCliToolWindowFactory
         ): CodacyCli {
             val systemOs = System.getProperty("os.name").lowercase()
 
             val cli = when (systemOs) {
                 "mac os x", "darwin" -> {
                     val cli = project.getService(MacOsCli::class.java)
-                    cli.initService(provider, organization, repository, project)
                     cli
-                    project.getService(MacOsCli::class.java)
                 }
 
                 "windows" -> {
                     //TODO
                     val cli = project.getService(MacOsCli::class.java)
-                    cli.initService(provider, organization, repository, project)
-                    cli
                     try {
                         val process = ProcessBuilder("wsl", "--status")
                             .redirectErrorStream(true)
@@ -159,16 +153,8 @@ abstract class CodacyCli() {
                     cli
                 }
             }
-                    project.getService(MacOsCli::class.java)
-                }
-            }
+            cli.initService(provider, organization, repository, project)
 
-            cli.initService(provider, organization, repository, project, cliWindowFactory)
-
-            cliWindowFactory.updateCliStatus(
-                isCliShellFilePresent(project),
-                isCodacySettingsPresent(project)
-            )
             return cli
         }
     }
