@@ -12,7 +12,10 @@ import com.intellij.notification.NotificationType
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
 import com.intellij.util.io.exists
+import com.jetbrains.qodana.sarif.SarifUtil
+import com.jetbrains.qodana.sarif.model.Run
 import java.io.File
+import java.io.StringReader
 import java.nio.file.Paths
 
 @Service
@@ -164,6 +167,11 @@ class MacOsCli() : CodacyCli() {
 
             notificationManager.createNotification("Codacy CLI initialized successfully", NotificationType.INFORMATION)
                 .notify(project)
+
+            analyze(
+                    "/Users/og_pixel/workspace/codacy-intellij-extension/src/main/kotlin/com/codacy/intellij/plugin/MyBundle.kt",
+                    null
+            )
         }
     }
 
@@ -188,4 +196,115 @@ class MacOsCli() : CodacyCli() {
             .waitFor()
     }
 
+
+    override suspend fun analyze(file: String?, tool: String?): List<ProcessedSarifResult>? {
+        prepareCli(true)
+
+        if (cliCommand.isBlank()) {
+            throw Exception("CLI command not found. Please install the CLI first.")
+        }
+
+        try {
+            val command = buildString {
+                append(cliCommand)
+                append(" analyze ")
+                if (file != null) append(file).append(" ")
+                append("--format sarif")
+            }
+
+            val params = if (tool != null) mapOf("tool" to tool) else emptyMap()
+            val execResult = execAsync(command, params)
+
+            val (stdout, stderr) = execResult.getOrElse { throw it }
+
+            val jsonMatch = Regex("""(\{[\s\S]*\}|\[[\s\S]*\])""").find(stdout)?.value
+
+
+            val sarifReport = SarifUtil.readReport(StringReader(jsonMatch))
+
+            val results = if(sarifReport.runs.isNotEmpty()) {
+                processSarifResults(sarifReport.runs)
+            } else {
+                emptyList()
+            }
+
+            notificationManager.createNotification(
+                "Codacy CLI analyzed processed FINISH",
+                results.toString(),
+                NotificationType.INFORMATION
+            ).notify(project)
+
+            return results
+        } catch (error: Exception) {
+            throw error
+        }
+    }
+
+    fun processSarifResults(runs: List<Run>): List<ProcessedSarifResult> {
+        return runs.flatMap { run ->
+            val tool = run.tool.driver.name
+            val rules = run.tool.driver.rules?.associateBy { it.id } ?: emptyMap()
+
+            run.results?.flatMap { result ->
+                val rule = result.ruleId?.let { rules[it] }
+                val level = result.level ?: "error"
+                val message = result.message?.text ?: "No message provided."
+
+                result.locations?.map { location ->
+                    val filePath = location.physicalLocation?.artifactLocation?.uri
+                    val region = location.physicalLocation?.region?.let {
+                        Region(
+                            startLine = it.startLine,
+                            startColumn = it.startColumn,
+                            endLine = it.endLine,
+                            endColumn = it.endColumn
+                        )
+                    }
+                    ProcessedSarifResult(
+                        tool = tool,
+                        rule = rule?.let {
+                            RuleInfo(
+                                id = it.id,
+                                name = it.name,
+                                helpUri = it.helpUri.toString(),
+                                shortDescription = it.shortDescription?.text
+                            )
+                        },
+                        level = level.toString(), //TODO check if correct
+                        message = message,
+                        filePath = filePath,
+                        region = region
+                    )
+                } ?: emptyList()
+            } ?: emptyList()
+        }
+    }
+
+
 }
+
+//TODO maybe move it to a separate file
+data class ProcessedSarifResult(
+    val tool: String,
+    val rule: RuleInfo? = null,
+    val level: String,
+    val message: String,
+    val filePath: String?,
+    val region: Region?
+)
+
+data class RuleInfo(
+    val id: String,
+    val name: String?,
+    val helpUri: String?,
+    val shortDescription: String?
+)
+
+// You may need to define Region according to the SARIF spec, e.g.:
+data class Region(
+    val startLine: Int? = null,
+    val startColumn: Int? = null,
+    val endLine: Int? = null,
+    val endColumn: Int? = null
+    // Add other fields as needed
+)

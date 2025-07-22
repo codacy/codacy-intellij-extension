@@ -10,7 +10,9 @@ import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_LOGS_N
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_TOOLS_CONFIGS_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_YAML_NAME
 import com.codacy.intellij.plugin.views.CodacyCliToolWindowFactory
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.project.Project
 import com.intellij.util.io.isFile
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +21,7 @@ import java.io.File
 import java.nio.file.Paths
 import kotlin.io.path.exists
 import kotlin.io.path.isDirectory
+import com.jetbrains.qodana.sarif.SarifUtil
 
 abstract class CodacyCli() {
 
@@ -133,7 +136,7 @@ abstract class CodacyCli() {
     suspend fun execAsync(
         command: String,
         args: Map<String, String>? = null
-    ): Result<Pair<String, String>> = withContext(Dispatchers.IO) {
+    ): kotlin.Result<Pair<String, String>> = withContext(Dispatchers.IO) {
         // Stringify the args
         val argsString = args?.entries
             ?.joinToString(" ") { "--${it.key} ${it.value}" }
@@ -143,6 +146,14 @@ abstract class CodacyCli() {
         val cmd = "$command $argsString".trim().replace(Regex("[;&|`$]"), "")
 
         try {
+
+            notificationManager.createNotification("test command: ", "$cmd", NotificationType.INFORMATION)
+                .notify(project)
+
+
+            notificationManager.createNotification("test rootPath: ", "$rootPath", NotificationType.INFORMATION)
+                .notify(project)
+
             val program = ProcessBuilder(cmd.split(" "))
                 .directory(File(rootPath))
                 .redirectErrorStream(false)
@@ -155,16 +166,21 @@ abstract class CodacyCli() {
             process.waitFor()
 
             if (process.exitValue() != 0) {
-                Result.failure(Exception(stderr.ifEmpty { "Unknown error" }))
+                kotlin.Result.failure(Exception(stderr.ifEmpty { "Unknown error" }))
             } else {
-                Result.success(Pair(stdout, stderr))
+                kotlin.Result.success(Pair(stdout, stderr))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            kotlin.Result.failure(e)
         }
     }
+
+    //TODO in vscode, tools param is currently not used
+    abstract suspend fun analyze(file: String?, tool: String? = null): List<ProcessedSarifResult>?
 
     abstract suspend fun prepareCli(autoInstall: Boolean = false)
 
     abstract suspend fun installCli(): String?
+
+
 }

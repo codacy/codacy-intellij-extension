@@ -18,12 +18,15 @@ version = properties("pluginVersion").get()
 // Configure project's dependencies
 repositories {
     mavenCentral()
+    maven("https://cache-redirector.jetbrains.com/intellij-dependencies")
 }
 
 // Dependencies are managed with Gradle version catalog - read more: https://docs.gradle.org/current/userguide/platforms.html#sub:version-catalog
 dependencies {
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("com.vladsch.flexmark:flexmark-all:0.64.8")
+    implementation(libs.qodana.sarif)
+//    implementation("com.jetbrains.qodana:qodana-sarif:0.2.8")
 }
 
 // Set the JVM language level used to build the project. Use Java 11 for 2020.3+, and Java 17 for 2022.2+.
