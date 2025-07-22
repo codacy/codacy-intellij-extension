@@ -17,41 +17,52 @@ class CodacyCliStatusBarWidget(private val project: Project) : StatusBarWidget, 
 
         val icon: Icon
 
+        //.cli.sh present
         data object INSTALLED : State {
             override fun toString() = "Installed"
-            override val icon: Icon = AllIcons.General.ErrorDialog
+            override val icon: Icon = AllIcons.General.SuccessDialog
         }
 
+        // cli.sh and configs present
+        data object INITIALIZED: State {
+            override fun toString() = "Initialized"
+            override val icon: Icon = AllIcons.General.Information
+        }
+
+        // either downloading cli or initalizing config
         data object INSTALLING : State {
             override fun toString() = "Installing"
             override val icon: Icon = AnimatedIcon.Default.INSTANCE
         }
 
+        //project is installed and initalized and its running analysis
         data object ANALYZING : State {
             override fun toString() = "Analyzing"
             override val icon: Icon = AnimatedIcon.Default.INSTANCE
         }
 
+        // something happened
+        // eg. config present but not cli.sh
         data object ERROR : State {
             override fun toString() = "Error"
             override val icon: Icon = AllIcons.General.BalloonError
         }
 
-        //This would only be an initial state, not a real step
-        data object INIT : State {
-            override fun toString() = "Init"
-            override val icon: Icon = AllIcons.General.BalloonError //TODO should not be needed
+        // inital state, nothing is present
+        data object NOT_INSTALLED : State {
+            override fun toString() = "Not Installed"
+            override val icon: Icon = AllIcons.General.ErrorDialog
         }
     }
 
-    private var state: State = State.INIT
+    private var state: State = State.NOT_INSTALLED
     var statusBar: StatusBar? = null
 
     //TODO rename
     override fun ID(): String = "MyPluginStatusWidget"
 
     override fun install(statusBar: StatusBar) {
-        CodacyCli.getService("", "", "", project)
+        CodacyCli.getService(project)
             .registerWidget(this)
 
         this.statusBar = statusBar
@@ -65,28 +76,21 @@ class CodacyCliStatusBarWidget(private val project: Project) : StatusBarWidget, 
 
     override fun getTooltipText(): String {
         return when (state) {
-            is State.INSTALLED -> "Codacy CLI is installed and ready to use"
+            is State.INSTALLED -> "Codacy CLI is installed, waiting to be initialized"
             is State.INSTALLING -> "Codacy CLI is being installed, please wait..."
+            is State.INITIALIZED -> "Codacy CLI is initialized and ready to use"
             is State.ANALYZING -> "Codacy CLI is analyzing your code, please wait..."
             is State.ERROR -> "An error occurred with Codacy CLI: $state"
-            is State.INIT -> "Codacy CLI is initializing, please wait..."
+            is State.NOT_INSTALLED -> "Codacy CLI is not installed, please install it"
             else -> "Something went wrong"
         }
     }
 
     override fun getClickConsumer(): Consumer<MouseEvent>? = Consumer { e ->
-        val test = when(state) {
-            is State.INSTALLED -> State.INSTALLING
-            is State.INSTALLING -> State.ANALYZING
-            is State.ANALYZING -> State.ERROR
-            is State.ERROR -> State.INIT
-            is State.INIT -> State.INSTALLED
-            else -> State.INIT
-        }
-        updateStatus(test)
-        JBPopupFactory.getInstance()
-            .createMessage("Current step: $state")
-            .showInCenterOf(e.component)
+        //DO nothing on click
+//        JBPopupFactory.getInstance()
+//            .createMessage("Current step: $state")
+//            .showInCenterOf(e.component)
     }
 
 

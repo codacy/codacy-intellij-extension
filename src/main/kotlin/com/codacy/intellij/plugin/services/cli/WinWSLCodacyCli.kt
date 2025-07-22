@@ -36,8 +36,8 @@ class WinWSLCodacyCli : MacOsCliImpl() {
         return super.analyze(wslFile, tool)
     }
 
-    override suspend fun execAsync(command: String, args: Map<String, String>?): Result<Pair<String, String>> {
-        // Prepend wsl to all commands
-        return super.execAsync("wsl $command", args)
-    }
+//    override suspend fun execAsync(command: String, args: Map<String, String>?): Result<Pair<String, String>> {
+//        // Prepend wsl to all commands
+//        return super.execAsync("wsl $command", args)
+//    }
 }

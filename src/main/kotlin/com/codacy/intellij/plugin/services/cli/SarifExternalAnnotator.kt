@@ -1,5 +1,6 @@
 package com.codacy.intellij.plugin.services.cli
 
+import com.codacy.intellij.plugin.services.cli.models.ProcessedSarifResult
 import com.codacy.intellij.plugin.views.CodacyCliToolWindowFactory
 import com.intellij.lang.annotation.AnnotationHolder
 import com.intellij.lang.annotation.ExternalAnnotator
@@ -29,7 +30,7 @@ class SarifExternalAnnotator : ExternalAnnotator<PsiFile, List<ProcessedSarifRes
         notificationGroup.createNotification("analyze test", "", NotificationType.INFORMATION)
             .notify(collectedInfo?.project)
 
-        val cli = CodacyCli.getService("gh", "codacy", "codacy-intellij-plugin", collectedInfo?.project ?: return null)
+        val cli = CodacyCli.getService(/*"gh", "codacy", "codacy-intellij-plugin",*/ collectedInfo?.project ?: return null)
 
 
         return runBlocking {

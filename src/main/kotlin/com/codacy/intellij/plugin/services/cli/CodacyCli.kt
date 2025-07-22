@@ -1,5 +1,6 @@
 package com.codacy.intellij.plugin.services.cli
 
+import com.codacy.intellij.plugin.services.cli.models.ProcessedSarifResult
 import com.codacy.intellij.plugin.services.common.Config
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_CONFIG_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_SHELL_NAME
@@ -9,7 +10,10 @@ import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_GITIGN
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_LOGS_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_TOOLS_CONFIGS_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_YAML_NAME
+import com.codacy.intellij.plugin.services.common.GitRemoteParser
+import com.codacy.intellij.plugin.services.git.GitProvider
 import com.codacy.intellij.plugin.views.CodacyCliToolWindowFactory
+import com.intellij.icons.AllIcons
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.project.Project
@@ -34,7 +38,7 @@ abstract class CodacyCli() {
     var isServiceInstantiated: Boolean = false
         private set
 
-    private var codacyStatusBarWidget: CodacyCliStatusBarWidget? = null
+    protected var codacyStatusBarWidget: CodacyCliStatusBarWidget? = null
     private var codacyCliToolWindowFactory: CodacyCliToolWindowFactory? = null
 
     private val config = Config.instance
@@ -51,6 +55,8 @@ abstract class CodacyCli() {
         val rootPath = project.basePath
             ?: throw IllegalStateException("Project base path is not set")
 
+        //TODO this logic might need to be changed to accommodate
+        // provider/org/repo changing
         if (!isServiceInstantiated) {
             this.provider = provider
             this.organization = organization
@@ -59,9 +65,31 @@ abstract class CodacyCli() {
             this.rootPath = rootPath
             isServiceInstantiated = true
         }
+
+        //TODO check if it worked
+//        updateWidgetState(CodacyCliStatusBarWidget.State.NOT_INSTALLED)
     }
 
     companion object {
+        //TODO I'd prefer this version so lets see how well it works
+        fun getService(project: Project): CodacyCli {
+            val gitProvider = GitProvider.getRepository(project)
+                ?: throw IllegalStateException("No Git provider found for the project")
+
+            val remote = gitProvider.remotes.firstOrNull()
+                ?: throw IllegalStateException("No remote found in the Git repository")
+
+            val gitInfo = GitRemoteParser.parseGitRemote(remote.firstUrl!!)
+
+            return getService(
+                gitInfo.provider,
+                gitInfo.organization,
+                gitInfo.repository,
+                project
+            )
+        }
+
+
         fun getService(
             provider: String,
             organization: String,
@@ -92,42 +120,9 @@ abstract class CodacyCli() {
                 }
             }
 
-            //TODO new implementation later
-//            cliWindowFactory.updateCliStatus(
-//                isCliShellFilePresent(project),
-//                isCodacySettingsPresent(project)
-//            )
             return cli
         }
 
-        fun isCodacyDirectoryPresent(project: Project): Boolean {
-            val rootPath = project.basePath ?: return false
-            val codacyDir = Paths.get(rootPath, CODACY_DIRECTORY_NAME)
-            return codacyDir.exists() && codacyDir.isDirectory()
-        }
-
-        fun isCliShellFilePresent(project: Project): Boolean {
-            val rootPath = project.basePath ?: return false
-            val cliFile = Paths.get(rootPath, CODACY_DIRECTORY_NAME, CODACY_CLI_SHELL_NAME)
-            return cliFile.exists() && cliFile.isFile()
-        }
-
-        fun isCodacySettingsPresent(project: Project): Boolean {
-            val rootPath = project.basePath ?: return false
-            val codacyDirectory = Paths.get(rootPath, CODACY_DIRECTORY_NAME)
-
-            val gitignoreFile = codacyDirectory.resolve(CODACY_GITIGNORE_NAME)
-            val cliConfigFile = codacyDirectory.resolve(CODACY_CLI_CONFIG_NAME)
-            val codacyYamlFile = codacyDirectory.resolve(CODACY_YAML_NAME)
-            val logsDirectory = codacyDirectory.resolve(CODACY_LOGS_NAME)
-            val toolsConfigsDirectory = codacyDirectory.resolve(CODACY_TOOLS_CONFIGS_NAME)
-
-            return (gitignoreFile.exists() && gitignoreFile.isFile() &&
-                    cliConfigFile.exists() && cliConfigFile.isFile() &&
-                    codacyYamlFile.exists() && codacyYamlFile.isFile() &&
-                    logsDirectory.exists() && logsDirectory.isDirectory() &&
-                    toolsConfigsDirectory.exists() && toolsConfigsDirectory.isDirectory())
-        }
 
     }
 
@@ -183,6 +178,10 @@ abstract class CodacyCli() {
         this.codacyCliToolWindowFactory = cliWindowFactory
     }
 
+    fun updateWidgetState(state: CodacyCliStatusBarWidget.State) {
+        codacyStatusBarWidget?.updateStatus(state)
+    }
+
     //TODO in vscode, tools param is currently not used
     abstract suspend fun analyze(file: String?, tool: String? = null): List<ProcessedSarifResult>?
 
@@ -190,5 +189,34 @@ abstract class CodacyCli() {
 
     abstract suspend fun installCli(): String?
 
+
+    fun isCodacyDirectoryPresent(project: Project): Boolean {
+        val rootPath = project.basePath ?: return false
+        val codacyDir = Paths.get(rootPath, CODACY_DIRECTORY_NAME)
+        return codacyDir.exists() && codacyDir.isDirectory()
+    }
+
+    fun isCliShellFilePresent(project: Project): Boolean {
+        val rootPath = project.basePath ?: return false
+        val cliFile = Paths.get(rootPath, CODACY_DIRECTORY_NAME, CODACY_CLI_SHELL_NAME)
+        return cliFile.exists() && cliFile.isFile()
+    }
+
+    fun isCodacySettingsPresent(project: Project): Boolean {
+        val rootPath = project.basePath ?: return false
+        val codacyDirectory = Paths.get(rootPath, CODACY_DIRECTORY_NAME)
+
+        val gitignoreFile = codacyDirectory.resolve(CODACY_GITIGNORE_NAME)
+        val cliConfigFile = codacyDirectory.resolve(CODACY_CLI_CONFIG_NAME)
+        val codacyYamlFile = codacyDirectory.resolve(CODACY_YAML_NAME)
+        val logsDirectory = codacyDirectory.resolve(CODACY_LOGS_NAME)
+        val toolsConfigsDirectory = codacyDirectory.resolve(CODACY_TOOLS_CONFIGS_NAME)
+
+        return (gitignoreFile.exists() && gitignoreFile.isFile() &&
+                cliConfigFile.exists() && cliConfigFile.isFile() &&
+                codacyYamlFile.exists() && codacyYamlFile.isFile() &&
+                logsDirectory.exists() && logsDirectory.isDirectory() &&
+                toolsConfigsDirectory.exists() && toolsConfigsDirectory.isDirectory())
+    }
 
 }
