@@ -80,7 +80,30 @@ abstract class CodacyCli() {
                 }
 
                 "windows" -> {
-                    project.getService(WinWSLCodacyCli::class.java)
+                    try {
+                        val process = ProcessBuilder("wsl", "--status")
+                            .redirectErrorStream(true)
+                            .start()
+
+                        process.waitFor()
+
+                        val isWSLSupported =
+                            process.inputStream.bufferedReader().readText().contains("Default Distribution")
+
+                        if (isWSLSupported) {
+                            project.getService(WinWSLCodacyCli::class.java)
+                        } else {
+                            project.getService(WinCodacyCli::class.java)
+                        }
+                    } catch (e: Exception) {
+                        notificationGroup.createNotification(
+                            "Window Subsystem for Linux detection failure",
+                            "Reverting to unsupported non-WSL mode. Process failed with error: ${e.message}",
+                            NotificationType.WARNING
+                        )
+
+                        project.getService(WinCodacyCli::class.java)
+                    }
                 }
 
                 else -> {
