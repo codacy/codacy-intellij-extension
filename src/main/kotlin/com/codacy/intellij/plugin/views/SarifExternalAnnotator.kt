@@ -1,52 +1,36 @@
 package com.codacy.intellij.plugin.views
 
 import com.codacy.intellij.plugin.services.cli.CodacyCli
+import com.codacy.intellij.plugin.services.cli.FileContentInfo
 import com.codacy.intellij.plugin.services.cli.models.ProcessedSarifResult
 import com.intellij.lang.annotation.AnnotationHolder
 import com.intellij.lang.annotation.ExternalAnnotator
 import com.intellij.lang.annotation.HighlightSeverity
-import com.intellij.notification.NotificationType
-import com.intellij.openapi.updateSettings.impl.pluginsAdvertisement.notificationGroup
+import com.intellij.openapi.editor.Document
 import com.intellij.openapi.util.TextRange
+import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiFile
 import kotlinx.coroutines.runBlocking
-import com.intellij.openapi.editor.Document
 
-class SarifExternalAnnotator : ExternalAnnotator<PsiFile, List<ProcessedSarifResult>>() {
+class SarifExternalAnnotator : ExternalAnnotator<FileContentInfo, List<ProcessedSarifResult>>() {
 
-//    lateinit var project: Project
-//    lateinit var cliToolWindowFactory: CodacyCliToolWindowFactory
-
-//    val cli = CodacyCli.getService("gh", "", "sandbox", project, cliToolWindowFactory)
-
-    override fun collectInformation(file: PsiFile): PsiFile? {
-        notificationGroup.createNotification("collectInformation", "", NotificationType.INFORMATION)
-            .notify(file?.project)
-
-        return file
+    override fun collectInformation(file: PsiFile): FileContentInfo? {
+        val document = PsiDocumentManager.getInstance(file.project).getDocument(file) ?: return null
+        val textHash = document.text.hashCode()
+        return FileContentInfo(file, textHash)
     }
 
-    override fun doAnnotate(collectedInfo: PsiFile?): List<ProcessedSarifResult>? {
-        notificationGroup.createNotification("analyze test", "", NotificationType.INFORMATION)
-            .notify(collectedInfo?.project)
-
-        //TODO modiefied
-        val cli = CodacyCli.Companion.getService(
-            /*"gh", "codacy", "codacy-intellij-plugin",*/ collectedInfo?.project ?: return null
-        )
-
+    override fun doAnnotate(collectedInfo: FileContentInfo?): List<ProcessedSarifResult>? {
+        val file = collectedInfo?.file
+        val cli = CodacyCli.Companion.getService(file?.project ?: return null)
 
         return runBlocking {
-            val result = cli.analyze(collectedInfo.virtualFile.path, null)
-            notificationGroup.createNotification("SUCCESSSSSSSSS", result.toString(), NotificationType.INFORMATION)
-                .notify(collectedInfo?.project)
+            val result = cli.analyze(file.virtualFile.path, null)
             return@runBlocking result
         }
     }
 
     override fun apply(file: PsiFile, annotationResult: List<ProcessedSarifResult>?, holder: AnnotationHolder) {
-        notificationGroup.createNotification("apply", "", NotificationType.INFORMATION)
-            .notify(file?.project)
         val document = file.viewProvider.document ?: return
 
         for (result in annotationResult ?: emptyList()) {
@@ -56,16 +40,13 @@ class SarifExternalAnnotator : ExternalAnnotator<PsiFile, List<ProcessedSarifRes
                 result.region.endLine!!, result.region.endColumn!!
             )
 
-            notificationGroup.createNotification("textrange", result.region.toString(), NotificationType.INFORMATION)
-                .notify(file?.project)
-
             holder.newAnnotation(HighlightSeverity.ERROR, result.message)
                 .range(textRange)
                 .create()
         }
     }
 
-    fun convertRegionToTextRange(
+    private fun convertRegionToTextRange(
         document: Document,
         startLine: Int,
         startCol: Int,
@@ -77,7 +58,6 @@ class SarifExternalAnnotator : ExternalAnnotator<PsiFile, List<ProcessedSarifRes
             val endOffset: Int = document.getLineStartOffset(endLine - 1) + (endCol - 1)
             return TextRange(startOffset, endOffset)
         } catch (e: IndexOutOfBoundsException) {
-            // Handle edge case: invalid line or column
             return TextRange.EMPTY_RANGE
         }
     }

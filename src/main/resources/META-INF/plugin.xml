@@ -15,15 +15,15 @@
                     canCloseContents="true"/>
 
         <!--TODO there might be a better way to annotate multiple languages-->
-        <externalAnnotator language="yaml" implementationClass="com.codacy.intellij.plugin.services.cli.SarifExternalAnnotator" />
-        <externalAnnotator language="kotlin" implementationClass="com.codacy.intellij.plugin.services.cli.SarifExternalAnnotator" />
-        <externalAnnotator language="scala" implementationClass="com.codacy.intellij.plugin.services.cli.SarifExternalAnnotator" />
-        <externalAnnotator language="java" implementationClass="com.codacy.intellij.plugin.services.cli.SarifExternalAnnotator" />
-        <externalAnnotator language="c++" implementationClass="com.codacy.intellij.plugin.services.cli.SarifExternalAnnotator" />
-        <externalAnnotator language="c" implementationClass="com.codacy.intellij.plugin.services.cli.SarifExternalAnnotator" />
-        <externalAnnotator language="rust" implementationClass="com.codacy.intellij.plugin.services.cli.SarifExternalAnnotator" />
-        <externalAnnotator language="javascript" implementationClass="com.codacy.intellij.plugin.services.cli.SarifExternalAnnotator" />
-        <externalAnnotator language="typescript" implementationClass="com.codacy.intellij.plugin.services.cli.SarifExternalAnnotator" />
+        <externalAnnotator language="yaml" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
+        <externalAnnotator language="kotlin" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
+        <externalAnnotator language="scala" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
+        <externalAnnotator language="java" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
+        <externalAnnotator language="c++" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
+        <externalAnnotator language="c" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
+        <externalAnnotator language="rust" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
+        <externalAnnotator language="javascript" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
+        <externalAnnotator language="typescript" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
 
         <statusBarWidgetFactory implementation="com.codacy.intellij.plugin.views.CodacyCliStatusBarWidgetFactory" id="com.codacy.intellij.plugin.views.CodacyCliStatusBarWidget"/>
         <localInspection groupPath="Codacy" groupBundle="messages.InspectionsBundle"

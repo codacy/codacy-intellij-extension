@@ -227,9 +227,18 @@ abstract class MacOsCliImpl : CodacyCli() {
 
 
     override suspend fun analyze(file: String?, tool: String?): List<ProcessedSarifResult>? {
+        //TODO handle if it were to fail
         prepareCli(true)
 
+        notificationManager
+            .createNotification("TEST", "analysizing", NotificationType.INFORMATION)
+            .notify(project)
+
+        updateWidgetState(CodacyCliStatusBarWidget.State.ANALYZING)
+
         if (cliCommand.isBlank()) {
+            //TODO check
+            updateWidgetState(CodacyCliStatusBarWidget.State.INITIALIZED)
             throw Exception("CLI command not found. Please install the CLI first.")
         }
 
@@ -253,8 +262,10 @@ abstract class MacOsCliImpl : CodacyCli() {
                 ?.let(::processSarifResults)
                 ?: emptyList()
 
+            updateWidgetState(CodacyCliStatusBarWidget.State.INITIALIZED)
             return results
         } catch (error: Exception) {
+            updateWidgetState(CodacyCliStatusBarWidget.State.INITIALIZED)
             throw error
         }
     }
