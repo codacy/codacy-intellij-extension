@@ -16,7 +16,8 @@
 
         <toolWindow id="CodacyCLITemp" anchor="left"
                     factoryClass="com.codacy.intellij.plugin.views.CodacyCliToolWindowFactory" canCloseContents="true"/>
-
+        <externalAnnotator language="yaml" implementationClass="com.codacy.intellij.plugin.services.cli.SarifExternalAnnotator" />
+        <statusBarWidgetFactory implementation="com.codacy.intellij.plugin.services.cli.CodacyCliStatusBarWidgetFactory" id="CodacyCliStatusBarWidget"/>
         <localInspection groupPath="Codacy" groupBundle="messages.InspectionsBundle"
                          groupKey="group.names.probable.bugs" enabledByDefault="true"
                          implementationClass="com.codacy.intellij.plugin.views.CodacyInspection"

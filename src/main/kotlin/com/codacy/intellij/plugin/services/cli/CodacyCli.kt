@@ -1,5 +1,6 @@
 package com.codacy.intellij.plugin.services.cli
 
+import com.codacy.intellij.plugin.services.cli.models.ProcessedSarifResult
 import com.codacy.intellij.plugin.services.common.Config
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_CONFIG_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_SHELL_NAME
@@ -10,7 +11,9 @@ import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_LOGS_N
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_TOOLS_CONFIGS_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_YAML_NAME
 import com.codacy.intellij.plugin.views.CodacyCliToolWindowFactory
+import com.intellij.notification.NotificationGroup
 import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.project.Project
 import com.intellij.util.io.isFile
 import kotlinx.coroutines.Dispatchers
@@ -66,31 +69,50 @@ abstract class CodacyCli() {
             organization: String,
             repository: String,
             project: Project,
+            notificationGroup: NotificationGroup,
             cliWindowFactory: CodacyCliToolWindowFactory
         ): CodacyCli {
             val systemOs = System.getProperty("os.name").lowercase()
 
             val cli = when (systemOs) {
                 "mac os x", "darwin" -> {
-                    val cli = project.getService(MacOsCli::class.java)
-                    cli.initService(provider, organization, repository, project, cliWindowFactory)
-                    cli
+                    project.getService(MacOsCli::class.java)
                 }
 
                 "windows" -> {
-                    //TODO
-                    val cli = project.getService(MacOsCli::class.java)
-                    cli.initService(provider, organization, repository, project, cliWindowFactory)
-                    cli
+                    try {
+                        val process = ProcessBuilder("wsl", "--status")
+                            .redirectErrorStream(true)
+                            .start()
+
+                        process.waitFor()
+
+                        val isWSLSupported =
+                            process.inputStream.bufferedReader().readText().contains("Default Distribution")
+
+                        if (isWSLSupported) {
+                            project.getService(WinWSLCodacyCli::class.java)
+                        } else {
+                            project.getService(WinCodacyCli::class.java)
+                        }
+                    } catch (e: Exception) {
+                        notificationGroup.createNotification(
+                            "Window Subsystem for Linux detection failure",
+                            "Reverting to unsupported non-WSL mode. Process failed with error: ${e.message}",
+                            NotificationType.WARNING
+                        )
+
+                        project.getService(WinCodacyCli::class.java)
+                    }
                 }
 
                 else -> {
                     //TODO
-                    val cli = project.getService(MacOsCli::class.java)
-                    cli.initService(provider, organization, repository, project, cliWindowFactory)
-                    cli
+                    project.getService(MacOsCli::class.java)
                 }
             }
+
+            cli.initService(provider, organization, repository, project, cliWindowFactory)
 
             cliWindowFactory.updateCliStatus(
                 isCliShellFilePresent(project),
@@ -130,7 +152,7 @@ abstract class CodacyCli() {
 
     }
 
-    suspend fun execAsync(
+    open suspend fun execAsync(
         command: String,
         args: Map<String, String>? = null
     ): Result<Pair<String, String>> = withContext(Dispatchers.IO) {
@@ -143,6 +165,14 @@ abstract class CodacyCli() {
         val cmd = "$command $argsString".trim().replace(Regex("[;&|`$]"), "")
 
         try {
+
+            notificationManager.createNotification("test command: ", "$cmd", NotificationType.INFORMATION)
+                .notify(project)
+
+
+            notificationManager.createNotification("test rootPath: ", "$rootPath", NotificationType.INFORMATION)
+                .notify(project)
+
             val program = ProcessBuilder(cmd.split(" "))
                 .directory(File(rootPath))
                 .redirectErrorStream(false)
@@ -164,7 +194,12 @@ abstract class CodacyCli() {
         }
     }
 
+    //TODO in vscode, tools param is currently not used
+    abstract suspend fun analyze(file: String?, tool: String? = null): List<ProcessedSarifResult>?
+
     abstract suspend fun prepareCli(autoInstall: Boolean = false)
 
     abstract suspend fun installCli(): String?
+
+
 }
