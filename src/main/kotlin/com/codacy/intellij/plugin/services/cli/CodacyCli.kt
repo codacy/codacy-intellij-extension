@@ -43,7 +43,6 @@ abstract class CodacyCli() {
     lateinit var rootPath: String
 
     var isServiceInstantiated: Boolean = false
-        private set
 
     protected var codacyStatusBarWidget: CodacyCliStatusBarWidget? = null
 
@@ -52,7 +51,7 @@ abstract class CodacyCli() {
         .getInstance()
         .getNotificationGroup("CodacyNotifications")
 
-    fun initService(
+    open fun initService(
         provider: String,
         organization: String,
         repository: String,
@@ -163,18 +162,19 @@ abstract class CodacyCli() {
         command: String,
         args: Map<String, String>? = null
     ): Result<Pair<String, String>> = withContext(Dispatchers.IO) {
-        // Stringify the args
-        val argsString = args?.entries
-            ?.joinToString(" ") { "--${it.key} ${it.value}" }
-            ?: ""
-
-        // Add the args to the command and remove any shell metacharacters
-        val cmd = "$command $argsString".trim().replace(Regex("[;&|`$]"), "")
+        val commandList = buildList {
+            addAll(command.split(" ").filter { it.isNotBlank() })
+            args?.forEach { (k, v) ->
+                add("--$k")
+                add(v)
+            }
+        }
 
         try {
-            val program = ProcessBuilder(cmd.split(" "))
+            val program = ProcessBuilder(commandList)
                 .directory(File(rootPath))
                 .redirectErrorStream(false)
+
             program.environment()[CODACY_CLI_V2_VERSION_ENV_NAME] = config.cliVersion
 
             val process = program.start()
