@@ -52,6 +52,7 @@ class CodacyCliToolWindowFactory : ToolWindowFactory {
                     gitInfo.organization,
                     gitInfo.repository,
                     project,
+                    notificationGroup,
                     self
                 )
 
@@ -67,6 +68,7 @@ class CodacyCliToolWindowFactory : ToolWindowFactory {
                             gitInfo.organization,
                             gitInfo.repository,
                             project,
+                            notificationGroup,
                             self
                         ).prepareCli(false)
                     }
@@ -79,6 +81,7 @@ class CodacyCliToolWindowFactory : ToolWindowFactory {
                             gitInfo.organization,
                             gitInfo.repository,
                             project,
+                            notificationGroup,
                             self
                         ).prepareCli(true)
                     }

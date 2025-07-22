@@ -1,7 +1,7 @@
-package com.codacy.intellij.plugin.services.cli
+package com.codacy.intellij.plugin.views
 
+import com.codacy.intellij.plugin.services.cli.CodacyCli
 import com.codacy.intellij.plugin.services.cli.models.ProcessedSarifResult
-import com.codacy.intellij.plugin.views.CodacyCliToolWindowFactory
 import com.intellij.lang.annotation.AnnotationHolder
 import com.intellij.lang.annotation.ExternalAnnotator
 import com.intellij.lang.annotation.HighlightSeverity
@@ -30,8 +30,10 @@ class SarifExternalAnnotator : ExternalAnnotator<PsiFile, List<ProcessedSarifRes
         notificationGroup.createNotification("analyze test", "", NotificationType.INFORMATION)
             .notify(collectedInfo?.project)
 
-        val cli = CodacyCli.getService("gh", "codacy", "codacy-intellij-plugin", collectedInfo?.project ?: return null,
-            notificationGroup, CodacyCliToolWindowFactory())
+        val cli = CodacyCli.Companion.getService(
+            "gh", "codacy", "codacy-intellij-plugin", collectedInfo?.project ?: return null,
+            notificationGroup, CodacyCliToolWindowFactory()
+        )
 
 
         return runBlocking {
@@ -47,10 +49,12 @@ class SarifExternalAnnotator : ExternalAnnotator<PsiFile, List<ProcessedSarifRes
             .notify(file?.project)
         val document = file.viewProvider.document ?: return
 
-        for( result in annotationResult ?: emptyList()) {
-            val textRange = convertRegionToTextRange(document,
+        for (result in annotationResult ?: emptyList()) {
+            val textRange = convertRegionToTextRange(
+                document,
                 result.region!!.startLine!!, result.region.startColumn!!,
-                result.region.endLine!!, result.region.endColumn!!)
+                result.region.endLine!!, result.region.endColumn!!
+            )
 
             notificationGroup.createNotification("textrange", result.region.toString(), NotificationType.INFORMATION)
                 .notify(file?.project)
