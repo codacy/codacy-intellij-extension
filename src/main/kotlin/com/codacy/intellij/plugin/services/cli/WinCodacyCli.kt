@@ -21,7 +21,7 @@ class WinCodacyCli : CodacyCli() {
         throw NotImplementedError(NOT_SUPPORTED)
     }
 
-//    override suspend fun execAsync(command: String, args: Map<String, String>?): Result<Pair<String, String>> {
-//        throw NotImplementedError(NOT_SUPPORTED)
-//    }
+    override suspend fun execAsync(command: String, args: Map<String, String>?): Result<Pair<String, String>> {
+        throw NotImplementedError(NOT_SUPPORTED)
+    }
 }

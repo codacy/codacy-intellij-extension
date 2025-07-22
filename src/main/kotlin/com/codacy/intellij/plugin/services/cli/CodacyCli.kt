@@ -13,6 +13,8 @@ import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_YAML_N
 import com.codacy.intellij.plugin.services.common.GitRemoteParser
 import com.codacy.intellij.plugin.services.git.GitProvider
 import com.codacy.intellij.plugin.views.CodacyCliStatusBarWidget
+import com.codacy.intellij.plugin.views.CodacyCliToolWindowFactory
+import com.intellij.notification.NotificationGroup
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.openapi.project.Project
 import com.intellij.util.io.isFile
@@ -106,6 +108,8 @@ abstract class CodacyCli() {
             organization: String,
             repository: String,
             project: Project,
+            notificationGroup: NotificationGroup,
+            cliWindowFactory: CodacyCliToolWindowFactory
         ): CodacyCli {
             val systemOs = System.getProperty("os.name").lowercase()
 
@@ -114,6 +118,7 @@ abstract class CodacyCli() {
                     val cli = project.getService(MacOsCli::class.java)
                     cli.initService(provider, organization, repository, project)
                     cli
+                    project.getService(MacOsCli::class.java)
                 }
 
                 "windows" -> {
@@ -121,6 +126,30 @@ abstract class CodacyCli() {
                     val cli = project.getService(MacOsCli::class.java)
                     cli.initService(provider, organization, repository, project)
                     cli
+                    try {
+                        val process = ProcessBuilder("wsl", "--status")
+                            .redirectErrorStream(true)
+                            .start()
+
+                        process.waitFor()
+
+                        val isWSLSupported =
+                            process.inputStream.bufferedReader().readText().contains("Default Distribution")
+
+                        if (isWSLSupported) {
+                            project.getService(WinWSLCodacyCli::class.java)
+                        } else {
+                            project.getService(WinCodacyCli::class.java)
+                        }
+                    } catch (e: Exception) {
+                        notificationGroup.createNotification(
+                            "Window Subsystem for Linux detection failure",
+                            "Reverting to unsupported non-WSL mode. Process failed with error: ${e.message}",
+                            NotificationType.WARNING
+                        )
+
+                        project.getService(WinCodacyCli::class.java)
+                    }
                 }
 
                 else -> {
@@ -130,11 +159,21 @@ abstract class CodacyCli() {
                     cli
                 }
             }
+                    project.getService(MacOsCli::class.java)
+                }
+            }
+
+            cli.initService(provider, organization, repository, project, cliWindowFactory)
+
+            cliWindowFactory.updateCliStatus(
+                isCliShellFilePresent(project),
+                isCodacySettingsPresent(project)
+            )
             return cli
         }
     }
 
-    suspend fun execAsync(
+    open suspend fun execAsync(
         command: String,
         args: Map<String, String>? = null
     ): Result<Pair<String, String>> = withContext(Dispatchers.IO) {
