@@ -10,7 +10,6 @@ import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_LOGS_N
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_TOOLS_CONFIGS_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_YAML_NAME
 import com.codacy.intellij.plugin.views.CodacyCliToolWindowFactory
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.project.Project
@@ -21,7 +20,6 @@ import java.io.File
 import java.nio.file.Paths
 import kotlin.io.path.exists
 import kotlin.io.path.isDirectory
-import com.jetbrains.qodana.sarif.SarifUtil
 
 abstract class CodacyCli() {
 
@@ -32,10 +30,12 @@ abstract class CodacyCli() {
     lateinit var repository: String
     lateinit var project: Project
     lateinit var rootPath: String
-    lateinit var cliWindowFactory: CodacyCliToolWindowFactory
 
     var isServiceInstantiated: Boolean = false
         private set
+
+    private var codacyStatusBarWidget: CodacyCliStatusBarWidget? = null
+    private var codacyCliToolWindowFactory: CodacyCliToolWindowFactory? = null
 
     private val config = Config.instance
     protected val notificationManager = NotificationGroupManager
@@ -47,7 +47,6 @@ abstract class CodacyCli() {
         organization: String,
         repository: String,
         project: Project,
-        cliWindowFactory: CodacyCliToolWindowFactory
     ) {
         val rootPath = project.basePath
             ?: throw IllegalStateException("Project base path is not set")
@@ -58,7 +57,6 @@ abstract class CodacyCli() {
             this.repository = repository
             this.project = project
             this.rootPath = rootPath
-            this.cliWindowFactory = cliWindowFactory
             isServiceInstantiated = true
         }
     }
@@ -69,36 +67,36 @@ abstract class CodacyCli() {
             organization: String,
             repository: String,
             project: Project,
-            cliWindowFactory: CodacyCliToolWindowFactory
         ): CodacyCli {
             val systemOs = System.getProperty("os.name").lowercase()
 
             val cli = when (systemOs) {
                 "mac os x", "darwin" -> {
                     val cli = project.getService(MacOsCli::class.java)
-                    cli.initService(provider, organization, repository, project, cliWindowFactory)
+                    cli.initService(provider, organization, repository, project)
                     cli
                 }
 
                 "windows" -> {
                     //TODO
                     val cli = project.getService(MacOsCli::class.java)
-                    cli.initService(provider, organization, repository, project, cliWindowFactory)
+                    cli.initService(provider, organization, repository, project)
                     cli
                 }
 
                 else -> {
                     //TODO
                     val cli = project.getService(MacOsCli::class.java)
-                    cli.initService(provider, organization, repository, project, cliWindowFactory)
+                    cli.initService(provider, organization, repository, project)
                     cli
                 }
             }
 
-            cliWindowFactory.updateCliStatus(
-                isCliShellFilePresent(project),
-                isCodacySettingsPresent(project)
-            )
+            //TODO new implementation later
+//            cliWindowFactory.updateCliStatus(
+//                isCliShellFilePresent(project),
+//                isCodacySettingsPresent(project)
+//            )
             return cli
         }
 
@@ -173,6 +171,16 @@ abstract class CodacyCli() {
         } catch (e: Exception) {
             kotlin.Result.failure(e)
         }
+    }
+
+    fun registerWidget(widget: CodacyCliStatusBarWidget) {
+        this.codacyStatusBarWidget = widget
+    }
+
+    fun registerToolWindowFactory(
+        cliWindowFactory: CodacyCliToolWindowFactory
+    ) {
+        this.codacyCliToolWindowFactory = cliWindowFactory
     }
 
     //TODO in vscode, tools param is currently not used

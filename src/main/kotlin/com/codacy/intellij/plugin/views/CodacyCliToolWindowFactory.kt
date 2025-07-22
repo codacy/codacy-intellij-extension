@@ -1,6 +1,7 @@
 package com.codacy.intellij.plugin.views
 
 import com.codacy.intellij.plugin.services.cli.CodacyCli
+import com.codacy.intellij.plugin.services.cli.CodacyCliStatusBarWidgetFactory
 import com.codacy.intellij.plugin.services.common.GitRemoteParser
 import com.codacy.intellij.plugin.services.git.GitProvider
 import com.intellij.icons.AllIcons
@@ -10,13 +11,16 @@ import com.intellij.openapi.startup.StartupManager
 import com.intellij.openapi.updateSettings.impl.pluginsAdvertisement.notificationGroup
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
+import com.intellij.openapi.wm.impl.status.widget.StatusBarWidgetsManager
 import com.intellij.ui.content.ContentFactory
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import java.awt.GridLayout
-import javax.swing.*
+import javax.swing.JButton
+import javax.swing.JLabel
+import javax.swing.JPanel
 
 class CodacyCliToolWindowFactory : ToolWindowFactory {
 
@@ -26,9 +30,10 @@ class CodacyCliToolWindowFactory : ToolWindowFactory {
     val downloadCliButton = JButton("Download CLI")
     val initCliButton = JButton("Initialize CLI")
 
+    val testButton = JButton("Test Status Bar Widget")
+
     @OptIn(DelicateCoroutinesApi::class)
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
-        val self = this
 
         StartupManager.getInstance(project).runWhenProjectIsInitialized {
             val gitProvider = GitProvider.getRepository(project)
@@ -52,13 +57,13 @@ class CodacyCliToolWindowFactory : ToolWindowFactory {
                     gitInfo.organization,
                     gitInfo.repository,
                     project,
-                    self
-                )
+                ).registerToolWindowFactory(this)
 
                 panel.add(downloadCliButton)
                 panel.add(initCliButton)
                 panel.add(cliPresentLabel)
                 panel.add(cliSettingsPresentLabel)
+                panel.add(testButton)
 
                 downloadCliButton.addActionListener {
                     GlobalScope.launch(Dispatchers.IO) {
@@ -67,7 +72,6 @@ class CodacyCliToolWindowFactory : ToolWindowFactory {
                             gitInfo.organization,
                             gitInfo.repository,
                             project,
-                            self
                         ).prepareCli(false)
                     }
                 }
@@ -79,9 +83,13 @@ class CodacyCliToolWindowFactory : ToolWindowFactory {
                             gitInfo.organization,
                             gitInfo.repository,
                             project,
-                            self
                         ).prepareCli(true)
                     }
+                }
+
+                testButton.addActionListener {
+                    StatusBarWidgetsManager(project)
+                        .updateWidget(CodacyCliStatusBarWidgetFactory::class.java)
                 }
 
                 val contentFactory = ContentFactory.getInstance()

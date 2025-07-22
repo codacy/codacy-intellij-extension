@@ -29,8 +29,7 @@ class SarifExternalAnnotator : ExternalAnnotator<PsiFile, List<ProcessedSarifRes
         notificationGroup.createNotification("analyze test", "", NotificationType.INFORMATION)
             .notify(collectedInfo?.project)
 
-        val cli = CodacyCli.getService("gh", "codacy", "codacy-intellij-plugin", collectedInfo?.project ?: return null,
-            CodacyCliToolWindowFactory())
+        val cli = CodacyCli.getService("gh", "codacy", "codacy-intellij-plugin", collectedInfo?.project ?: return null)
 
 
         return runBlocking {
