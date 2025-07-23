@@ -19,7 +19,6 @@ class WinWSLCodacyCli : MacOsCliImpl() {
         organization: String,
         repository: String,
         project: com.intellij.openapi.project.Project,
-        cliWindowFactory: com.codacy.intellij.plugin.views.CodacyCliToolWindowFactory
     ) {
         val basePath = project.basePath
         val winRootPath = if (basePath != null && basePath.startsWith("/mnt/")) {
@@ -34,7 +33,6 @@ class WinWSLCodacyCli : MacOsCliImpl() {
             this.repository = repository
             this.project = project
             this.rootPath = winRootPath ?: throw IllegalStateException("Project base path is not set")
-            this.cliWindowFactory = cliWindowFactory
             isServiceInstantiated = true
         }
     }
