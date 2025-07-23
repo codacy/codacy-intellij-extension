@@ -1,84 +1,84 @@
 package com.codacy.intellij.plugin.views
 
 import com.codacy.intellij.plugin.services.cli.CodacyCli
+import com.codacy.intellij.plugin.services.cli.FileContentInfo
 import com.codacy.intellij.plugin.services.cli.models.ProcessedSarifResult
 import com.intellij.lang.annotation.AnnotationHolder
 import com.intellij.lang.annotation.ExternalAnnotator
 import com.intellij.lang.annotation.HighlightSeverity
-import com.intellij.notification.NotificationType
-import com.intellij.openapi.updateSettings.impl.pluginsAdvertisement.notificationGroup
+import com.intellij.openapi.editor.Document
 import com.intellij.openapi.util.TextRange
+import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiFile
 import kotlinx.coroutines.runBlocking
-import com.intellij.openapi.editor.Document
+import java.util.concurrent.ConcurrentHashMap
 
-class SarifExternalAnnotator : ExternalAnnotator<PsiFile, List<ProcessedSarifResult>>() {
 
-//    lateinit var project: Project
-//    lateinit var cliToolWindowFactory: CodacyCliToolWindowFactory
+private val resultCache = ConcurrentHashMap<Int, List<ProcessedSarifResult>?>()
+private val runningHashes = ConcurrentHashMap.newKeySet<Int>()
 
-//    val cli = CodacyCli.getService("gh", "", "sandbox", project, cliToolWindowFactory)
+class SarifExternalAnnotator : ExternalAnnotator<FileContentInfo, List<ProcessedSarifResult>>() {
 
-    override fun collectInformation(file: PsiFile): PsiFile? {
-        notificationGroup.createNotification("collectInformation", "", NotificationType.INFORMATION)
-            .notify(file?.project)
-
-        return file
+    override fun collectInformation(file: PsiFile): FileContentInfo? {
+        val document = PsiDocumentManager.getInstance(file.project).getDocument(file) ?: return null
+        val textHash = document.text.hashCode()
+        return FileContentInfo(file, textHash)
     }
 
-    override fun doAnnotate(collectedInfo: PsiFile?): List<ProcessedSarifResult>? {
-        notificationGroup.createNotification("analyze test", "", NotificationType.INFORMATION)
-            .notify(collectedInfo?.project)
+    override fun doAnnotate(collectedInfo: FileContentInfo?): List<ProcessedSarifResult>? {
+        if (collectedInfo == null) return null
 
-        val cli = CodacyCli.Companion.getService(
-            "gh", "codacy", "codacy-intellij-plugin", collectedInfo?.project ?: return null,
-            notificationGroup, CodacyCliToolWindowFactory()
-        )
+        val hash = collectedInfo.contentHash
+        resultCache[hash]?.let { return it }
 
+        if (!runningHashes.add(hash)) return null
 
-        return runBlocking {
-            val result = cli.analyze(collectedInfo.virtualFile.path, null)
-            notificationGroup.createNotification("SUCCESSSSSSSSS", result.toString(), NotificationType.INFORMATION)
-                .notify(collectedInfo?.project)
-            return@runBlocking result
+        try {
+            val file = collectedInfo.file
+            val cli = CodacyCli.getService(file.project)
+            val result = runBlocking {
+                cli.analyze(file.virtualFile.path, null)
+            }
+            resultCache[hash] = result
+            return result
+        } finally {
+            runningHashes.remove(hash)
         }
     }
 
     override fun apply(file: PsiFile, annotationResult: List<ProcessedSarifResult>?, holder: AnnotationHolder) {
-        notificationGroup.createNotification("apply", "", NotificationType.INFORMATION)
-            .notify(file?.project)
         val document = file.viewProvider.document ?: return
 
-        for (result in annotationResult ?: emptyList()) {
+        for (result in annotationResult.orEmpty()) {
+            val region = result.region ?: continue
+
             val textRange = convertRegionToTextRange(
                 document,
-                result.region!!.startLine!!, result.region.startColumn!!,
-                result.region.endLine!!, result.region.endColumn!!
+                region.startLine!!, region.startColumn!!,
+                region.endLine!!, region.endColumn!!
             )
 
-            notificationGroup.createNotification("textrange", result.region.toString(), NotificationType.INFORMATION)
-                .notify(file?.project)
-
-            holder.newAnnotation(HighlightSeverity.ERROR, result.message)
-                .range(textRange)
-                .create()
+            if (textRange.isEmpty.not()) {
+                holder.newAnnotation(HighlightSeverity.ERROR, result.message)
+                    .range(textRange)
+                    .create()
+            }
         }
     }
 
-    fun convertRegionToTextRange(
+    private fun convertRegionToTextRange(
         document: Document,
         startLine: Int,
         startCol: Int,
         endLine: Int,
         endCol: Int
     ): TextRange {
-        try {
-            val startOffset: Int = document.getLineStartOffset(startLine - 1) + (startCol - 1)
-            val endOffset: Int = document.getLineStartOffset(endLine - 1) + (endCol - 1)
-            return TextRange(startOffset, endOffset)
+        return try {
+            val startOffset = document.getLineStartOffset(startLine - 1) + (startCol - 1)
+            val endOffset = document.getLineStartOffset(endLine - 1) + (endCol - 1)
+            TextRange(startOffset, endOffset)
         } catch (e: IndexOutOfBoundsException) {
-            // Handle edge case: invalid line or column
-            return TextRange.EMPTY_RANGE
+            TextRange.EMPTY_RANGE
         }
     }
 

@@ -12,8 +12,8 @@ import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_V2
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_DIRECTORY_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_TOOLS_CONFIGS_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_YAML_NAME
+import com.codacy.intellij.plugin.views.CodacyCliStatusBarWidget
 import com.intellij.notification.NotificationType
-import com.intellij.openapi.project.Project
 import com.intellij.util.io.exists
 import com.jetbrains.qodana.sarif.SarifUtil
 import com.jetbrains.qodana.sarif.model.Run
@@ -26,43 +26,62 @@ abstract class MacOsCliImpl : CodacyCli() {
     private val config = Config.instance
     private var accountToken = config.storedApiToken
 
-    fun findCliCommand(project: Project): String? {
-        val fullPath = Paths.get(rootPath, CODACY_DIRECTORY_NAME, CODACY_CLI_SHELL_NAME).toAbsolutePath()
-
-        return if (isCliShellFilePresent(project)) {
-            fullPath.toString()
-        } else null
-    }
-
     override suspend fun prepareCli(autoInstall: Boolean) {
-        if (cliCommand.isBlank()) {
+        var _cliCommand = findCliCommand()
 
-            var _cliCommand = findCliCommand(project)
+        if (!isCliShellFilePresent()) {
+            updateWidgetState(CodacyCliStatusBarWidget.State.INSTALLING)
+
             if (_cliCommand == null) {
-
                 _cliCommand = installCli()
-
                 if (_cliCommand == null) {
+                    updateWidgetState(CodacyCliStatusBarWidget.State.ERROR)
                     return
                 }
             }
+
+            updateWidgetState(CodacyCliStatusBarWidget.State.INSTALLED)
             cliCommand = _cliCommand
+        } else if (cliCommand.isBlank() && isCliShellFilePresent()) {
+            updateWidgetState(CodacyCliStatusBarWidget.State.INSTALLING)
+            if (_cliCommand != null) {
+                updateWidgetState(CodacyCliStatusBarWidget.State.INSTALLED)
+                cliCommand = _cliCommand
+            } else {
+                updateWidgetState(CodacyCliStatusBarWidget.State.ERROR)
+
+                notificationManager
+                    .createNotification(
+                        "Something unexpected went wrong when assigning codacy CLI command",
+                        NotificationType.ERROR
+                    )
+                    .notify(project)
+                return
+            }
+        } else {
+            if (_cliCommand != null) {
+                cliCommand = _cliCommand
+            }
         }
 
-        if (autoInstall && !isCodacySettingsPresent(project)) {
-            initialize()
+        if (autoInstall && !isCodacySettingsPresent()) {
+            updateWidgetState(CodacyCliStatusBarWidget.State.INSTALLING)
+            val initRes = initialize()
+            if (initRes) {
+                updateWidgetState(CodacyCliStatusBarWidget.State.INITIALIZED)
+            } else {
+                updateWidgetState(CodacyCliStatusBarWidget.State.ERROR)
+            }
+        } else if (isCodacySettingsPresent()) {
+            updateWidgetState(CodacyCliStatusBarWidget.State.INITIALIZED)
         }
 
-        cliWindowFactory.updateCliStatus(
-            isCliShellFilePresent(project),
-            isCodacySettingsPresent(project)
-        )
     }
 
     override suspend fun installCli(): String? {
         val codacyConfigFullPath = Paths.get(rootPath, CODACY_DIRECTORY_NAME)
 
-        if (!isCodacyDirectoryPresent(project)) {
+        if (!isCodacyDirectoryPresent()) {
             codacyConfigFullPath.toFile().mkdirs()
         }
 
@@ -87,7 +106,7 @@ abstract class MacOsCliImpl : CodacyCli() {
         }
     }
 
-    fun installDependencies() {
+    private fun installDependencies(): Boolean {
         val program = ProcessBuilder(cliCommand, "install")
             .redirectErrorStream(true)
         program.environment()[CODACY_CLI_V2_VERSION_ENV_NAME] = config.cliVersion
@@ -104,14 +123,24 @@ abstract class MacOsCliImpl : CodacyCli() {
                     NotificationType.ERROR
                 )
                 .notify(project)
+            return false
         }
 
         notificationManager
             .createNotification("Dependencies installed successfully", NotificationType.INFORMATION)
             .notify(project)
+        return true
     }
 
-    suspend fun initialize() {
+    private fun findCliCommand(): String? {
+        val fullPath = Paths.get(rootPath, CODACY_DIRECTORY_NAME, CODACY_CLI_SHELL_NAME).toAbsolutePath()
+
+        return if (isCliShellFilePresent()) {
+            fullPath.toString()
+        } else null
+    }
+
+    private suspend fun initialize(): Boolean {
         val configFilePath = Paths.get(rootPath, CODACY_DIRECTORY_NAME, CODACY_YAML_NAME)
         val cliConfigFilePath = Paths.get(rootPath, CODACY_DIRECTORY_NAME, CODACY_CLI_CONFIG_NAME)
         val toolsFolderPath = Paths.get(rootPath, CODACY_DIRECTORY_NAME, CODACY_TOOLS_CONFIGS_NAME)
@@ -149,11 +178,16 @@ abstract class MacOsCliImpl : CodacyCli() {
             try {
                 execAsync("$cliCommand init", initParams)
             } catch (error: Exception) {
-                throw RuntimeException("Failed to initialize CLI: $error")
+                notificationManager
+                    .createNotification("Codacy CLI initialize has failed", NotificationType.ERROR)
+                    .notify(project)
+                return false
             }
 
-            // install dependencies
-            installDependencies()
+            val result = installDependencies()
+            if (!result) {
+                return false
+            }
 
             // add cli.sh to .gitignore
             val gitignorePath = Paths.get(rootPath, ".codacy", ".gitignore")
@@ -169,15 +203,12 @@ abstract class MacOsCliImpl : CodacyCli() {
 
             notificationManager.createNotification("Codacy CLI initialized successfully", NotificationType.INFORMATION)
                 .notify(project)
-
-            analyze(
-                "/Users/og_pixel/workspace/codacy-intellij-extension/src/main/kotlin/com/codacy/intellij/plugin/MyBundle.kt",
-                null
-            )
         }
+
+        return true
     }
 
-    fun downloadCodacyCli(outputPath: String): Int {
+    private fun downloadCodacyCli(outputPath: String): Int {
         val process = ProcessBuilder("curl", "-Ls", CODACY_CLI_DOWNLOAD_LINK)
             .redirectErrorStream(true)
             .start()
@@ -202,8 +233,18 @@ abstract class MacOsCliImpl : CodacyCli() {
     override suspend fun analyze(file: String?, tool: String?): List<ProcessedSarifResult>? {
         prepareCli(true)
 
+        updateWidgetState(CodacyCliStatusBarWidget.State.ANALYZING)
+
         if (cliCommand.isBlank()) {
-            throw Exception("CLI command not found. Please install the CLI first.")
+            updateWidgetState(CodacyCliStatusBarWidget.State.INITIALIZED)
+
+            notificationManager
+                .createNotification(
+                    "CLI command not found. Please install the CLI first.",
+                    NotificationType.ERROR
+                )
+                .notify(project)
+            return null
         }
 
         try {
@@ -217,7 +258,7 @@ abstract class MacOsCliImpl : CodacyCli() {
             val params = if (tool != null) mapOf("tool" to tool) else emptyMap()
             val execResult = execAsync(command, params)
 
-            val (stdout, stderr) = execResult.getOrElse { throw it }
+            val (stdout, _) = execResult.getOrElse { throw it }
 
             val jsonMatch = Regex("""(\{[\s\S]*\}|\[[\s\S]*\])""").find(stdout)?.value
 
@@ -226,14 +267,10 @@ abstract class MacOsCliImpl : CodacyCli() {
                 ?.let(::processSarifResults)
                 ?: emptyList()
 
-            notificationManager.createNotification(
-                "Codacy CLI analyzed processed FINISH",
-                results.toString(),
-                NotificationType.INFORMATION
-            ).notify(project)
-
+            updateWidgetState(CodacyCliStatusBarWidget.State.INITIALIZED)
             return results
         } catch (error: Exception) {
+            updateWidgetState(CodacyCliStatusBarWidget.State.INITIALIZED)
             throw error
         }
     }
@@ -268,7 +305,7 @@ abstract class MacOsCliImpl : CodacyCli() {
                                 shortDescription = it.shortDescription?.text
                             )
                         },
-                        level = level.toString(), //TODO check if correct
+                        level = level.toString(),
                         message = message,
                         filePath = filePath,
                         region = region

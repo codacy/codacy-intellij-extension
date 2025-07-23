@@ -7,20 +7,19 @@ import com.intellij.openapi.wm.StatusBarWidget
 import com.intellij.openapi.wm.StatusBarWidgetFactory
 
 class CodacyCliStatusBarWidgetFactory: StatusBarWidgetFactory {
-    override fun getId(): String = "CodacyCliStatusBarWidget"
+    override fun getId(): String = "com.codacy.intellij.plugin.views.CodacyCliStatusBarWidget"
 
     override fun getDisplayName(): String = "Codacy CLI Status"
 
-    override fun isAvailable(p0: Project): Boolean = true //TODO
+    override fun isAvailable(project: Project): Boolean = true
 
     override fun createWidget(project: Project): StatusBarWidget =
         CodacyCliStatusBarWidget(project)
 
-    override fun disposeWidget(p0: StatusBarWidget) {
-        Disposer.dispose(p0)
+    override fun disposeWidget(statusBarWidget: StatusBarWidget) {
+        Disposer.dispose(statusBarWidget)
     }
 
-    override fun canBeEnabledOn(p0: StatusBar): Boolean = true //TODO
-
+    override fun canBeEnabledOn(statusBar: StatusBar): Boolean = true
 
 }

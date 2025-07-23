@@ -14,10 +14,18 @@
                     factoryClass="com.codacy.intellij.plugin.views.CodacyPullRequestSummaryToolWindowFactory"
                     canCloseContents="true"/>
 
-        <toolWindow id="CodacyCLITemp" anchor="left"
-                    factoryClass="com.codacy.intellij.plugin.views.CodacyCliToolWindowFactory" canCloseContents="true"/>
-        <externalAnnotator language="yaml" implementationClass="com.codacy.intellij.plugin.services.cli.SarifExternalAnnotator" />
-        <statusBarWidgetFactory implementation="com.codacy.intellij.plugin.services.cli.CodacyCliStatusBarWidgetFactory" id="CodacyCliStatusBarWidget"/>
+        <!--TODO there might be a better way to annotate multiple languages-->
+        <externalAnnotator language="yaml" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
+        <externalAnnotator language="kotlin" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
+        <externalAnnotator language="scala" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
+        <externalAnnotator language="java" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
+        <externalAnnotator language="c++" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
+        <externalAnnotator language="c" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
+        <externalAnnotator language="rust" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
+        <externalAnnotator language="javascript" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
+        <externalAnnotator language="typescript" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
+
+        <statusBarWidgetFactory implementation="com.codacy.intellij.plugin.views.CodacyCliStatusBarWidgetFactory" id="com.codacy.intellij.plugin.views.CodacyCliStatusBarWidget"/>
         <localInspection groupPath="Codacy" groupBundle="messages.InspectionsBundle"
                          groupKey="group.names.probable.bugs" enabledByDefault="true"
                          implementationClass="com.codacy.intellij.plugin.views.CodacyInspection"
