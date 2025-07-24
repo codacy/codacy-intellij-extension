@@ -12,6 +12,7 @@ data class QualitySettingsData(
 data class QualityGate(
     val issueThreshold: IssueThreshold,
     val securityIssueThreshold: Int,
+    val securityIssueMinimumSeverity: String?,
     val duplicationThreshold: Int,
     val coverageThreshold: Int,
     val coverageThresholdWithDecimals: Double,

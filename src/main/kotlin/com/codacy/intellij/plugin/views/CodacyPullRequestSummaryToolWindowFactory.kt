@@ -263,11 +263,11 @@ class CodacyPullRequestSummaryToolWindowFactory : ToolWindowFactory {
             parentNode.add(node)
         }
 
-        if (pr.gates?.qualityGate?.securityIssueThreshold?.let { it > 0 } == true && (pr.prWithAnalysis?.newIssues
-                ?: 0) > 0) {
+        if (pr.gates?.qualityGate?.securityIssueThreshold?.let { it > 0 } == true && (pr.prWithAnalysis?.newIssues ?: 0) > 0) {
             val gate: Int = pr.gates!!.qualityGate.securityIssueThreshold
+            val minimumSeverity: String? = pr.gates!!.qualityGate.securityIssueMinimumSeverity
             nodeContent = NodeContent(
-                text = "Security issues > $gate",
+                text = (minimumSeverity ?: "Info") + "Security issues > $gate",
                 icon = AllIcons.Diff.Lock,
                 filePath = null
             )
