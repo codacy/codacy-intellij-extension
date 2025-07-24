@@ -14,6 +14,29 @@ class WinWSLCodacyCli : MacOsCliImpl() {
             path.replace(Regex("^/mnt/([a-zA-Z])"), "$1:").replace("/", "\\")
     }
 
+    override fun initService(
+        provider: String,
+        organization: String,
+        repository: String,
+        project: com.intellij.openapi.project.Project,
+    ) {
+        val basePath = project.basePath
+        val winRootPath = if (basePath != null && basePath.startsWith("/mnt/")) {
+            fromWSLPath(basePath)
+        } else {
+            basePath
+        }
+
+        if (!isServiceInstantiated) {
+            this.provider = provider
+            this.organization = organization
+            this.repository = repository
+            this.project = project
+            this.rootPath = winRootPath ?: throw IllegalStateException("Project base path is not set")
+            isServiceInstantiated = true
+        }
+    }
+
     override suspend fun prepareCli(autoInstall: Boolean) {
         // Use MacOsCli logic, but ensure cliCommand is WSL path
         if (cliCommand.isBlank()) {
@@ -37,7 +60,16 @@ class WinWSLCodacyCli : MacOsCliImpl() {
     }
 
     override suspend fun execAsync(command: String, args: Map<String, String>?): Result<Pair<String, String>> {
-        // Prepend wsl to all commands
-        return super.execAsync("wsl $command", args)
+        // Prepend wsl as a separate argument
+        val commandList = buildList {
+            add("wsl")
+            addAll(command.split(" ").filter { it.isNotBlank() })
+            args?.forEach { (k, v) ->
+                add("--$k")
+                add(v)
+            }
+        }
+
+        return super.execAsync(commandList.joinToString(" "), emptyMap())
     }
 }
