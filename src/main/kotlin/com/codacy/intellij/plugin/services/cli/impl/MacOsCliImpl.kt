@@ -12,6 +12,7 @@ import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_V2
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_DIRECTORY_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_TOOLS_CONFIGS_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_YAML_NAME
+import com.codacy.intellij.plugin.services.common.PrepareCommand
 import com.codacy.intellij.plugin.views.CodacyCliStatusBarWidget
 import com.intellij.notification.NotificationType
 import com.intellij.util.io.exists
@@ -107,8 +108,7 @@ abstract class MacOsCliImpl : CodacyCli() {
     }
 
     private fun installDependencies(): Boolean {
-        val program = ProcessBuilder(cliCommand, "install")
-            .redirectErrorStream(true)
+        val program = PrepareCommand(cliCommand, "install")
         program.environment()[CODACY_CLI_V2_VERSION_ENV_NAME] = config.cliVersion
 
         val exitCode = program
@@ -209,10 +209,7 @@ abstract class MacOsCliImpl : CodacyCli() {
     }
 
     private fun downloadCodacyCli(outputPath: String): Int {
-        val process = ProcessBuilder("curl", "-Ls", CODACY_CLI_DOWNLOAD_LINK)
-            .redirectErrorStream(true)
-            .start()
-
+        val process = PrepareCommand("curl", "-Ls", CODACY_CLI_DOWNLOAD_LINK).start()
         val output = process.inputStream.bufferedReader().use { it.readText() }
         val exitCode = process.waitFor()
 
@@ -223,8 +220,7 @@ abstract class MacOsCliImpl : CodacyCli() {
         val outputFile = Paths.get(outputPath)
         outputFile.toFile().writeText(output)
 
-        return ProcessBuilder("chmod", "+x", outputFile.toAbsolutePath().toString())
-            .redirectErrorStream(true)
+        return PrepareCommand("chmod", "+x", outputFile.toAbsolutePath().toString())
             .start()
             .waitFor()
     }

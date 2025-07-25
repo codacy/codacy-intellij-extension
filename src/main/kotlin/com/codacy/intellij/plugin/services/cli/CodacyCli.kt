@@ -11,6 +11,7 @@ import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_LOGS_N
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_TOOLS_CONFIGS_NAME
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_YAML_NAME
 import com.codacy.intellij.plugin.services.common.GitRemoteParser
+import com.codacy.intellij.plugin.services.common.PrepareCommand
 import com.codacy.intellij.plugin.services.git.GitProvider
 import com.codacy.intellij.plugin.views.CodacyCliStatusBarWidget
 import com.intellij.notification.NotificationGroupManager
@@ -117,12 +118,8 @@ abstract class CodacyCli() {
                 }
 
                 "windows" -> {
-                    //TODO
-                    val cli = project.getService(MacOsCli::class.java)
                     try {
-                        val process = ProcessBuilder("wsl", "--status")
-                            .redirectErrorStream(true)
-                            .start()
+                        val process = PrepareCommand("wsl", "--status").start()
 
                         process.waitFor()
 

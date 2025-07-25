@@ -56,10 +56,7 @@ class ConfigConfigurable : SearchableConfigurable {
     }
 
     private fun fetchAvailableCliVersions(): List<String> {
-        val process = ProcessBuilder("curl", CODACY_CLI_RELEASES_LINK)
-            .redirectErrorStream(false)
-            .start()
-
+        val process = PrepareCommand("curl", CODACY_CLI_RELEASES_LINK).start()
         val output = process.inputStream.bufferedReader().use { it.readText() }
         val exitCode = process.waitFor()
 
