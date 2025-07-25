@@ -22,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.nio.file.Paths
+import java.util.UUID
 import kotlin.io.path.exists
 import kotlin.io.path.isDirectory
 
@@ -226,6 +227,11 @@ abstract class CodacyCli() {
                 codacyYamlFile.exists() && codacyYamlFile.isFile() &&
                 logsDirectory.exists() && logsDirectory.isDirectory() &&
                 toolsConfigsDirectory.exists() && toolsConfigsDirectory.isDirectory())
+    }
+
+    fun getCodacyCliTempFileName(): String {
+        val uuid = UUID.randomUUID().toString()
+        return ".analysis-result-$uuid.json"
     }
 
 }
