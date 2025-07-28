@@ -44,9 +44,11 @@
         <externalAnnotator language="PLSQL" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
         <externalAnnotator language="Python" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
         <externalAnnotator language="R" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
-        <externalAnnotator language="Ruby" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
-        <externalAnnotator language="rust" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
+        <externalAnnotator language="ruby" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
+        <externalAnnotator language="Rust" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
         <externalAnnotator language="Scala" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
+        <externalAnnotator language="Scala 2" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
+        <externalAnnotator language="Scala 3" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
         <externalAnnotator language="Scheme" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
         <externalAnnotator language="Solidity" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
         <externalAnnotator language="SQL" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
