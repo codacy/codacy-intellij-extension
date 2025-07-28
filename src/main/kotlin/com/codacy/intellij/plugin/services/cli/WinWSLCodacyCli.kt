@@ -2,6 +2,7 @@ package com.codacy.intellij.plugin.services.cli
 
 import com.codacy.intellij.plugin.services.cli.impl.MacOsCliImpl
 import com.codacy.intellij.plugin.services.cli.models.ProcessedSarifResult
+import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_DOWNLOAD_LINK
 import com.intellij.openapi.components.Service
 
 @Service
@@ -72,4 +73,11 @@ class WinWSLCodacyCli : MacOsCliImpl() {
 
         return super.execAsync(commandList.joinToString(" "), emptyMap())
     }
+
+    // Override to use WSL for download and chmod
+    override fun getDownloadCommand(): List<String> =
+        listOf("wsl", "curl", "-Ls", CODACY_CLI_DOWNLOAD_LINK)
+
+    override fun getChmodCommand(outputPath: String): List<String> =
+        listOf("wsl", "chmod", "+x", outputPath)
 }

@@ -208,8 +208,16 @@ abstract class MacOsCliImpl : CodacyCli() {
         return true
     }
 
-    private fun downloadCodacyCli(outputPath: String): Int {
-        val process = PrepareCommand("curl", "-Ls", CODACY_CLI_DOWNLOAD_LINK).start()
+    protected open fun getDownloadCommand(): List<String> =
+        listOf("curl", "-Ls", CODACY_CLI_DOWNLOAD_LINK)
+
+    protected open fun getChmodCommand(outputPath: String): List<String> =
+        listOf("chmod", "+x", outputPath)
+
+    protected open fun downloadCodacyCli(
+        outputPath: String
+    ): Int {
+        val process = PrepareCommand(*getDownloadCommand().toTypedArray()).start()
         val output = process.inputStream.bufferedReader().use { it.readText() }
         val exitCode = process.waitFor()
 
@@ -220,7 +228,8 @@ abstract class MacOsCliImpl : CodacyCli() {
         val outputFile = Paths.get(outputPath)
         outputFile.toFile().writeText(output)
 
-        return PrepareCommand("chmod", "+x", outputFile.toAbsolutePath().toString())
+        val chmod = getChmodCommand(outputFile.toAbsolutePath().toString())
+        return PrepareCommand(*chmod.toTypedArray())
             .start()
             .waitFor()
     }
