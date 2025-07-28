@@ -6,6 +6,10 @@ import java.nio.file.Path
 
 class LinuxBehaviour: CodacyCliBehaviour {
 
+    override fun toCliPath(path: String): String = path
+
+    override fun fromCliPath(path: String): String = path
+
     override fun downloadCliCommand(): ProcessBuilder {
         return ProcessBuilder("curl", "-Ls", Config.CODACY_CLI_DOWNLOAD_LINK)
     }

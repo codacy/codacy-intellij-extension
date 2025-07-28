@@ -218,7 +218,7 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
             Paths.get(rootPath, Config.CODACY_DIRECTORY_NAME, Config.CODACY_CLI_SHELL_NAME).toAbsolutePath()
 
         if (!codacyCliPath.exists()) {
-            val cliExitCode = downloadCodacyCli(codacyCliPath.toString())
+            val cliExitCode = downloadCodacyCli(cliBehaviour.toCliPath(codacyCliPath.toString()))
             if (cliExitCode != 0) {
                 notificationManager
                     .createNotification(
@@ -229,15 +229,15 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
                     .notify(project)
                 return null
             } else {
-                return codacyCliPath.toString()
+                return cliBehaviour.toCliPath(codacyCliPath.toString())
             }
         } else {
-            return codacyCliPath.toString()
+            return cliBehaviour.toCliPath(codacyCliPath.toString())
         }
     }
 
     fun installDependencies(): Boolean {
-        val program = cliBehaviour.buildCommand(cliCommand, "install").redirectErrorStream(true)
+        val program = cliBehaviour.buildCommand(cliBehaviour.toCliPath(cliCommand), "install").redirectErrorStream(true)
         program.environment()[CODACY_CLI_V2_VERSION_ENV_NAME] = config.cliVersion
 
         val exitCode = program
@@ -265,7 +265,7 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
         val fullPath = Paths.get(rootPath, Config.CODACY_DIRECTORY_NAME, Config.CODACY_CLI_SHELL_NAME).toAbsolutePath()
 
         return if (isCliShellFilePresent()) {
-            fullPath.toString()
+            cliBehaviour.toCliPath(fullPath.toString())
         } else null
     }
 
@@ -355,7 +355,7 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
             return exitCode
         }
 
-        val outputFile = Paths.get(outputPath)
+        val outputFile = Paths.get(cliBehaviour.toCliPath(outputPath))
         outputFile.toFile().writeText(output)
 
         return cliBehaviour.chmodCommand(outputFile)
@@ -481,7 +481,7 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
 
         try {
             val program = cliBehaviour.buildCommand(*commandParts.toTypedArray())
-                .directory(File(rootPath))
+                .directory(File(cliBehaviour.toCliPath(rootPath)))
                 .redirectErrorStream(false)
 
             program.environment()[CODACY_CLI_V2_VERSION_ENV_NAME] = config.cliVersion
