@@ -116,12 +116,12 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
         ): CodacyCli {
             val systemOs = System.getProperty("os.name").lowercase()
 
-            val cli = when (systemOs) {
-                "mac os x", "darwin" -> {
+            val cli = when {
+                systemOs == "mac os x" || systemOs.contains("darwin") -> {
                     CodacyCli(LinuxBehaviour())
                 }
 
-                "windows" -> {
+                systemOs.contains("windows") -> {
                     val process = ProcessBuilder("wsl", "--status")
                         .redirectErrorStream(true)
                         .start()
