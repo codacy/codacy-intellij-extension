@@ -30,6 +30,13 @@ abstract class MacOsCliImpl : CodacyCli() {
     override suspend fun prepareCli(autoInstall: Boolean) {
         var _cliCommand = findCliCommand()
 
+        notificationManager
+            .createNotification(
+                "Debug#001: $_cliCommand",
+                NotificationType.INFORMATION
+            )
+            .notify(project)
+
         if (!isCliShellFilePresent()) {
             updateWidgetState(CodacyCliStatusBarWidget.State.INSTALLING)
 
