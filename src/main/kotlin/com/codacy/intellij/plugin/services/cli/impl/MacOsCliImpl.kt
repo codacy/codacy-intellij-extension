@@ -17,8 +17,10 @@ import com.intellij.notification.NotificationType
 import com.intellij.util.io.exists
 import com.jetbrains.qodana.sarif.SarifUtil
 import com.jetbrains.qodana.sarif.model.Run
+import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.io.StringReader
+import java.nio.file.Path
 import java.nio.file.Paths
 
 abstract class MacOsCliImpl : CodacyCli() {
@@ -179,7 +181,11 @@ abstract class MacOsCliImpl : CodacyCli() {
                 execAsync("$cliCommand init", initParams)
             } catch (error: Exception) {
                 notificationManager
-                    .createNotification("Codacy CLI initialize has failed", NotificationType.ERROR)
+                    .createNotification(
+                        "Codacy CLI initialize has failed",
+                        error.message ?: error.localizedMessage,
+                        NotificationType.ERROR
+                    )
                     .notify(project)
                 return false
             }
@@ -248,32 +254,57 @@ abstract class MacOsCliImpl : CodacyCli() {
         }
 
         try {
-            val command = buildString {
-                append(cliCommand)
-                append(" analyze ")
-                if (file != null) append(file).append(" ")
-                append("--format sarif")
+            var results: List<ProcessedSarifResult> = emptyList()
+
+            withTempFile { tempFile, tempFilePath ->
+
+                val command = buildString {
+                    append(cliCommand)
+                    append(" analyze ")
+                    append(" --output ")
+                    append(tempFilePath.toString())
+                    append(" ")
+                    if (file != null) append(file).append(" ")
+                    append("--format sarif")
+                }
+
+                val params = if (tool != null) mapOf("tool" to tool) else emptyMap()
+
+                runBlocking {
+                    val execResult = execAsync(command, params)
+                    if (execResult.isFailure) {
+                        notificationManager.createNotification(
+                            "Codacy CLI analysis has failed",
+                            execResult.exceptionOrNull()?.message ?: "Unknown error",
+                            NotificationType.ERROR
+                        )
+                        updateWidgetState(CodacyCliStatusBarWidget.State.ERROR)
+                    }
+                }
+
+                val fileOutput = File(tempFilePath.toUri()).readText()
+
+                results = fileOutput
+                    .let { SarifUtil.readReport(StringReader(it)).runs }
+                    ?.let(::processSarifResults)
+                    ?: emptyList()
+
+                updateWidgetState(CodacyCliStatusBarWidget.State.INITIALIZED)
             }
 
-            val params = if (tool != null) mapOf("tool" to tool) else emptyMap()
-            val execResult = execAsync(command, params)
-
-            val (stdout, _) = execResult.getOrElse { throw it }
-
-            val jsonMatch = Regex("""(\{[\s\S]*\}|\[[\s\S]*\])""").find(stdout)?.value
-
-            val results = jsonMatch
-                ?.let { SarifUtil.readReport(StringReader(it)).runs }
-                ?.let(::processSarifResults)
-                ?: emptyList()
-
-            updateWidgetState(CodacyCliStatusBarWidget.State.INITIALIZED)
             return results
         } catch (error: Exception) {
+            notificationManager
+                .createNotification(
+                    "Codacy CLI analysis has failed",
+                    error.message ?: error.localizedMessage,
+                    NotificationType.ERROR
+                )
             updateWidgetState(CodacyCliStatusBarWidget.State.INITIALIZED)
-            throw error
+            return emptyList()
         }
     }
+
 
     fun processSarifResults(runs: List<Run>): List<ProcessedSarifResult> {
         return runs.flatMap { run ->
@@ -314,4 +345,18 @@ abstract class MacOsCliImpl : CodacyCli() {
             } ?: emptyList()
         }
     }
+
+    private fun withTempFile(
+        function: (File, Path) -> Unit
+    ) {
+        val tempFileName = getCodacyCliTempFileName()
+        val tempFilePath = Paths.get(rootPath, CODACY_DIRECTORY_NAME, tempFileName)
+        val tempFile = tempFilePath.toFile()
+        try {
+            function(tempFile, tempFilePath)
+        } finally {
+            tempFile.delete()
+        }
+    }
+
 }
