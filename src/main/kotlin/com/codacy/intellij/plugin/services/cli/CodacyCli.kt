@@ -63,9 +63,6 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
         repository: String,
         project: Project,
     ) {
-        val rootPath = project.basePath
-            ?: throw IllegalStateException("Project base path is not set")
-
         //TODO this logic might need to be changed to accommodate
         // provider/org/repo changing
         if (!isServiceInstantiated) {
@@ -73,7 +70,7 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
             this.organization = organization
             this.repository = repository
             this.project = project
-            this.rootPath = rootPath
+            this.rootPath = cliBehaviour.rootPath(project)
             isServiceInstantiated = true
         }
 
@@ -218,7 +215,7 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
             Paths.get(rootPath, Config.CODACY_DIRECTORY_NAME, Config.CODACY_CLI_SHELL_NAME).toAbsolutePath()
 
         if (!codacyCliPath.exists()) {
-            val cliExitCode = downloadCodacyCli(cliBehaviour.toCliPath(codacyCliPath.toString()))
+            val cliExitCode = downloadCodacyCli(codacyCliPath.toString())
             if (cliExitCode != 0) {
                 notificationManager
                     .createNotification(
@@ -316,6 +313,7 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
                         NotificationType.ERROR
                     )
                     .notify(project)
+
                 return false
             }
 
@@ -355,7 +353,7 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
             return exitCode
         }
 
-        val outputFile = Paths.get(cliBehaviour.toCliPath(outputPath))
+        val outputFile = Paths.get(cliBehaviour.fromCliPath(outputPath))
         outputFile.toFile().writeText(output)
 
         return cliBehaviour.chmodCommand(outputFile)
@@ -390,9 +388,9 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
                     append(cliCommand)
                     append(" analyze ")
                     append(" --output ")
-                    append(tempFilePath.toString())
+                    append(cliBehaviour.toCliPath(tempFilePath.toString()))
                     append(" ")
-                    if (file != null) append(file).append(" ")
+                    if (file != null) append(cliBehaviour.toCliPath(file)).append(" ")
                     append("--format sarif")
                 }
 
@@ -481,7 +479,7 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
 
         try {
             val program = cliBehaviour.buildCommand(*commandParts.toTypedArray())
-                .directory(File(cliBehaviour.toCliPath(rootPath)))
+                .directory(File(rootPath))
                 .redirectErrorStream(false)
 
             program.environment()[CODACY_CLI_V2_VERSION_ENV_NAME] = config.cliVersion
