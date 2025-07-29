@@ -4,6 +4,7 @@ import com.codacy.intellij.plugin.services.cli.CodacyCli
 import com.codacy.intellij.plugin.services.common.IconUtils
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.startup.StartupManager
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.wm.StatusBar
 import com.intellij.openapi.wm.StatusBarWidget
@@ -59,10 +60,11 @@ class CodacyCliStatusBarWidget(private val project: Project) : StatusBarWidget, 
     override fun ID(): String = "com.codacy.intellij.plugin.views.CodacyCliStatusBarWidget"
 
     override fun install(statusBar: StatusBar) {
-        CodacyCli.Companion.getService(project)
-            .registerWidget(this)
-
-        this.statusBar = statusBar
+        StartupManager.getInstance(project).runWhenProjectIsInitialized {
+            CodacyCli.Companion.getService(project)
+                .registerWidget(this)
+            this.statusBar = statusBar
+        }
     }
 
     override fun dispose() {}
