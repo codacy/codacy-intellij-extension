@@ -5,7 +5,7 @@ import com.codacy.intellij.plugin.services.common.Config
 import com.intellij.openapi.project.Project
 import java.nio.file.Path
 
-class LinuxBehaviour : CodacyCliBehaviour {
+class UnixBehaviour : CodacyCliBehaviour {
 
     override fun rootPath(project: Project): String {
         return project.basePath ?: throw IllegalStateException("Project base path is not set")

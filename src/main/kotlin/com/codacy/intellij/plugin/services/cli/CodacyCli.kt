@@ -1,6 +1,6 @@
 package com.codacy.intellij.plugin.services.cli
 
-import com.codacy.intellij.plugin.services.cli.behaviour.LinuxBehaviour
+import com.codacy.intellij.plugin.services.cli.behaviour.UnixBehaviour
 import com.codacy.intellij.plugin.services.cli.behaviour.WindowsCliBehaviour
 import com.codacy.intellij.plugin.services.cli.models.ProcessedSarifResult
 import com.codacy.intellij.plugin.services.cli.models.Region
@@ -19,6 +19,7 @@ import com.codacy.intellij.plugin.services.git.GitProvider
 import com.codacy.intellij.plugin.views.CodacyCliStatusBarWidget
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
+import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.updateSettings.impl.pluginsAdvertisement.notificationGroup
 import com.intellij.util.io.exists
@@ -32,11 +33,11 @@ import java.io.File
 import java.io.StringReader
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.util.UUID
-import kotlin.io.path.exists
+import java.util.*
 import kotlin.io.path.isDirectory
 
-class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
+@Service
+class CodacyCli() {
 
     var cliCommand: String = ""
 
@@ -46,22 +47,26 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
     lateinit var project: Project
     lateinit var rootPath: String
 
-    var isServiceInstantiated: Boolean = false
+    private var isServiceInstantiated: Boolean = false
 
-    protected var codacyStatusBarWidget: CodacyCliStatusBarWidget? = null
+    private var cliBehaviour: CodacyCliBehaviour? = null
+
+    private var codacyStatusBarWidget: CodacyCliStatusBarWidget? = null
 
     private val config = Config.instance
     private var accountToken = config.storedApiToken
 
-    protected val notificationManager = NotificationGroupManager
+    private val notificationManager = NotificationGroupManager
         .getInstance()
         .getNotificationGroup("CodacyNotifications")
 
-    fun initService(
+    private fun initService(
         provider: String,
         organization: String,
         repository: String,
         project: Project,
+        cliBehaviour: CodacyCliBehaviour,
+        widget: CodacyCliStatusBarWidget? = null
     ) {
         //TODO this logic might need to be changed to accommodate
         // provider/org/repo changing
@@ -70,8 +75,13 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
             this.organization = organization
             this.repository = repository
             this.project = project
+            this.cliBehaviour = cliBehaviour
             this.rootPath = cliBehaviour.rootPath(project)
             isServiceInstantiated = true
+        }
+
+        if(widget != null) {
+            registerWidget(widget)
         }
 
         val isSettingsPresent = isCodacySettingsPresent()
@@ -87,7 +97,7 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
     }
 
     companion object {
-        fun getService(project: Project): CodacyCli {
+        fun getService(project: Project, widget: CodacyCliStatusBarWidget? = null): CodacyCli {
             val gitProvider = GitProvider.getRepository(project)
                 ?: throw IllegalStateException("No Git provider found for the project")
 
@@ -100,22 +110,25 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
                 gitInfo.provider,
                 gitInfo.organization,
                 gitInfo.repository,
-                project
+                project,
+                widget
             )
         }
 
 
-        private fun getService(
+        fun getService(
             provider: String,
             organization: String,
             repository: String,
             project: Project,
+            widget: CodacyCliStatusBarWidget? = null
         ): CodacyCli {
             val systemOs = System.getProperty("os.name").lowercase()
+            val cli = project.getService(CodacyCli::class.java)
 
-            val cli = when {
+            val cliBehaviour = when {
                 systemOs == "mac os x" || systemOs.contains("darwin") -> {
-                    CodacyCli(LinuxBehaviour())
+                    UnixBehaviour()
                 }
 
                 systemOs.contains("windows") -> {
@@ -129,15 +142,14 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
                         process.inputStream.bufferedReader().readText().contains("Default Distribution")
 
                     if (isWSLSupported) {
-                        CodacyCli(WindowsCliBehaviour())
+                        WindowsCliBehaviour()
                     } else {
                         notificationGroup.createNotification(
                             "Window Subsystem for Linux detection failure",
                             "WSL not present on this machine.",
                             NotificationType.WARNING
                         )
-
-                        CodacyCli(WindowsCliBehaviour())
+                        WindowsCliBehaviour()
                     }
                 }
 
@@ -146,7 +158,7 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
                 }
             }
 
-            cli.initService(provider, organization, repository, project)
+            cli.initService(provider, organization, repository, project, cliBehaviour, widget)
 
             return cli
         }
@@ -205,6 +217,8 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
     }
 
     fun installCli(): String? {
+        val cliBehaviour = this.cliBehaviour ?: throw IllegalStateException("CLI behaviour is not set")
+
         val codacyConfigFullPath = Paths.get(rootPath, Config.CODACY_DIRECTORY_NAME)
 
         if (!isCodacyDirectoryPresent()) {
@@ -234,6 +248,8 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
     }
 
     fun installDependencies(): Boolean {
+        val cliBehaviour = this.cliBehaviour ?: throw IllegalStateException("CLI behaviour is not set")
+
         val program = cliBehaviour.buildCommand(cliBehaviour.toCliPath(cliCommand), "install").redirectErrorStream(true)
         program.environment()[CODACY_CLI_V2_VERSION_ENV_NAME] = config.cliVersion
 
@@ -259,6 +275,8 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
     }
 
     private fun findCliCommand(): String? {
+        val cliBehaviour = this.cliBehaviour ?: throw IllegalStateException("CLI behaviour is not set")
+
         val fullPath = Paths.get(rootPath, Config.CODACY_DIRECTORY_NAME, Config.CODACY_CLI_SHELL_NAME).toAbsolutePath()
 
         return if (isCliShellFilePresent()) {
@@ -342,6 +360,8 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
     }
 
     private fun downloadCodacyCli(outputPath: String): Int {
+        val cliBehaviour = this.cliBehaviour ?: throw IllegalStateException("CLI behaviour is not set")
+
         val process = cliBehaviour.downloadCliCommand()
             .redirectErrorStream(true)
             .start()
@@ -363,6 +383,8 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
     }
 
     suspend fun analyze(file: String?, tool: String?): List<ProcessedSarifResult>? {
+        val cliBehaviour = this.cliBehaviour ?: throw IllegalStateException("CLI behaviour is not set")
+
         prepareCli(true)
 
         updateWidgetState(CodacyCliStatusBarWidget.State.ANALYZING)
@@ -468,40 +490,49 @@ class CodacyCli(private val cliBehaviour: CodacyCliBehaviour) {
     suspend fun execAsync(
         command: String,
         args: Map<String, String>? = null
-    ): Result<Pair<String, String>> = withContext(Dispatchers.IO) {
-        val commandParts = buildList {
-            addAll(command.split(" ").filter { it.isNotBlank() })
-            args?.forEach { (k, v) ->
-                add("--$k")
-                add(v)
+    ): Result<Pair<String, String>> {
+        val cliBehaviour = this.cliBehaviour ?: throw IllegalStateException("CLI behaviour is not set")
+
+        return withContext(Dispatchers.IO) {
+            val commandParts = buildList {
+                addAll(command.split(" ").filter { it.isNotBlank() })
+                args?.forEach { (k, v) ->
+                    add("--$k")
+                    add(v)
+                }
             }
-        }
 
-        try {
-            val program = cliBehaviour.buildCommand(*commandParts.toTypedArray())
-                .directory(File(rootPath))
-                .redirectErrorStream(false)
+            try {
+                val program = cliBehaviour.buildCommand(*commandParts.toTypedArray())
+                    .directory(File(rootPath))
+                    .redirectErrorStream(false)
 
-            program.environment()[CODACY_CLI_V2_VERSION_ENV_NAME] = config.cliVersion
+                program.environment()[CODACY_CLI_V2_VERSION_ENV_NAME] = config.cliVersion
 
-            val process = program.start()
-            val stdout = process.inputStream.bufferedReader().readText()
-            val stderr = process.errorStream.bufferedReader().readText()
+                val process = program.start()
+                val stdout = process.inputStream.bufferedReader().readText()
+                val stderr = process.errorStream.bufferedReader().readText()
 
-            process.waitFor()
+                process.waitFor()
 
-            if (process.exitValue() != 0) {
-                Result.failure(Exception(stderr.ifEmpty { "Unknown error" }))
-            } else {
-                Result.success(Pair(stdout, stderr))
+                if (process.exitValue() != 0) {
+                    Result.failure(Exception(stderr.ifEmpty { "Unknown error" }))
+                } else {
+                    Result.success(Pair(stdout, stderr))
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
             }
-        } catch (e: Exception) {
-            Result.failure(e)
         }
     }
 
 
-    fun registerWidget(widget: CodacyCliStatusBarWidget) {
+    private fun registerWidget(widget: CodacyCliStatusBarWidget) {
+        notificationManager.createNotification(
+            "Codacy CLI Status Bar Widget",
+            "Codacy CLI Status Bar Widget has been registered successfully.",
+            NotificationType.INFORMATION
+        ).notify(project)
         this.codacyStatusBarWidget = widget
     }
 
