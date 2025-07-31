@@ -36,6 +36,9 @@ import java.nio.file.Paths
 import java.util.*
 import kotlin.io.path.isDirectory
 
+import com.codacy.intellij.plugin.telemetry.CliInstallEvent
+import com.codacy.intellij.plugin.telemetry.Telemetry
+
 @Service
 class CodacyCli() {
 
@@ -240,6 +243,7 @@ class CodacyCli() {
                     .notify(project)
                 return null
             } else {
+                Telemetry.track(CliInstallEvent)
                 return cliBehaviour.toCliPath(codacyCliPath.toString())
             }
         } else {

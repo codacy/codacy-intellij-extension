@@ -122,4 +122,18 @@ class Api {
         return makeRequest(endpointUrl, GetRepositoryResponse::class.java)
     }
 
+    suspend fun getUserProfile(): UserProfile? {
+        val endpointUrl = "user"
+        return try {
+            val response = makeRequest(endpointUrl, GetUserProfileResponse::class.java)
+            response.data
+        } catch (e: Exception) {
+            Logger.error("Failed to fetch user profile: ${e.message}")
+            null
+        }
+    }
+
+    data class GetUserProfileResponse(
+        val data: UserProfile
+    )
 }
