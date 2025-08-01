@@ -72,7 +72,6 @@
         <statusBarWidgetFactory implementation="com.codacy.intellij.plugin.views.CodacyStatusBarWidgetFactory"
                                 id="com.codacy.intellij.plugin.CodacyStatusBarWidget"/>
 
-        <preStartupActivity implementation="com.codacy.intellij.plugin.listeners.RegisterPluginInstallerStateListener"/>
         <postStartupActivity implementation="com.codacy.intellij.plugin.listeners.StartupListener"/>
 
         <applicationConfigurable

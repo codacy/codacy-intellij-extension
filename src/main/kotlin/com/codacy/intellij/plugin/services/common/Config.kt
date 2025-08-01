@@ -43,12 +43,12 @@ class Config : PersistentStateComponent<Config.State> {
 
     data class State(
         var baseUri: String? = null,
-
         var availableCliVersions: List<String> = listOf(),
         var selectedCliVersion: String = "",
         var hasSentInstallTelemetry: Boolean = false,
         var anonymousId: String = UUID.randomUUID().toString(),
-        var userId: Int? = null
+        var userId: Int? = null,
+        var isFirstRun: Boolean = true
     )
 
     override fun getState(): State = state
