@@ -1,9 +1,15 @@
 package com.codacy.intellij.plugin.services.common
 
+import com.codacy.intellij.plugin.services.api.Api
+import com.codacy.intellij.plugin.telemetry.Telemetry
 import com.intellij.credentialStore.CredentialAttributes
 import com.intellij.credentialStore.Credentials
 import com.intellij.ide.passwordSafe.PasswordSafe
 import com.intellij.openapi.components.*
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import java.util.*
 
 @State(
     name = "codacy",
@@ -37,9 +43,12 @@ class Config : PersistentStateComponent<Config.State> {
 
     data class State(
         var baseUri: String? = null,
-
         var availableCliVersions: List<String> = listOf(),
         var selectedCliVersion: String = "",
+        var hasSentInstallTelemetry: Boolean = false,
+        var anonymousId: String = UUID.randomUUID().toString(),
+        var userId: Int? = null,
+        var isFirstRun: Boolean = true
     )
 
     override fun getState(): State = state
@@ -60,6 +69,7 @@ class Config : PersistentStateComponent<Config.State> {
         return credentials?.getPasswordAsString()
     }
 
+    @OptIn(DelicateCoroutinesApi::class)
     fun storeApiToken(token: String?) {
         val credentialAttributes = createCredentialAttributes()
         if (token.isNullOrBlank()) {
@@ -71,6 +81,18 @@ class Config : PersistentStateComponent<Config.State> {
             PasswordSafe.instance.set(credentialAttributes, credentials)
             apiToken = token
             log.info("API Token stored")
+
+            if (state.userId == null) {
+                GlobalScope.launch {
+                    val userProfile = Api().getUserProfile()
+
+                    if (userProfile?.id != null && state.userId == null) {
+                        state.userId = userProfile.id
+
+                        Telemetry.identify()
+                    }
+                }
+            }
         }
     }
 

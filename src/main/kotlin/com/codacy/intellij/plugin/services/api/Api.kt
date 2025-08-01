@@ -60,17 +60,15 @@ class Api {
         }
     }
 
-//    TODO: remove unused endpoints
+    suspend fun getRepositoryWithAnalysis(provider: String, remoteOrganizationName: String, repositoryName: String): GetRepositoryWithAnalysisResponse {
+        val endpointUrl = "analysis/organizations/$provider/$remoteOrganizationName/repositories/$repositoryName"
+        return makeRequest(endpointUrl, GetRepositoryWithAnalysisResponse::class.java)
+    }
 
-//    suspend fun getRepositoryWithAnalysis(provider: String, remoteOrganizationName: String, repositoryName: String): GetRepositoryWithAnalysisResponse {
-//        val endpointUrl = "analysis/organizations/$provider/$remoteOrganizationName/repositories/$repositoryName"
-//        return makeRequest(endpointUrl, GetRepositoryWithAnalysisResponse::class.java)
-//    }
-//
-//    suspend fun getRepositoryCoverageStatus(provider: String, remoteOrganizationName: String, repositoryName: String): ListCoverageReportsResponse {
-//        val endpointUrl = "organizations/$provider/$remoteOrganizationName/repositories/$repositoryName/coverage/status"
-//        return makeRequest(endpointUrl, ListCoverageReportsResponse::class.java)
-//    }
+    suspend fun getRepositoryCoverageStatus(provider: String, remoteOrganizationName: String, repositoryName: String): ListCoverageReportsResponse {
+        val endpointUrl = "organizations/$provider/$remoteOrganizationName/repositories/$repositoryName/coverage/status"
+        return makeRequest(endpointUrl, ListCoverageReportsResponse::class.java)
+    }
 
     suspend fun getPullRequestQualitySettings(provider: String, remoteOrganizationName: String, repositoryName: String): GetPullRequestQualitySettingsResponse {
         val endpointUrl = "organizations/$provider/$remoteOrganizationName/repositories/$repositoryName/settings/quality/pull-requests"
@@ -122,4 +120,17 @@ class Api {
         return makeRequest(endpointUrl, GetRepositoryResponse::class.java)
     }
 
+    suspend fun getUserProfile(): UserProfile? {
+        val endpointUrl = "user"
+        return try {
+            makeRequest(endpointUrl, GetUserProfileResponse::class.java).data
+        } catch (e: Exception) {
+            Logger.error("Failed to fetch user profile: ${e.message}")
+            null
+        }
+    }
+
+    data class GetUserProfileResponse(
+        val data: UserProfile
+    )
 }

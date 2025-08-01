@@ -26,6 +26,7 @@ dependencies {
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("com.vladsch.flexmark:flexmark-all:0.64.8")
     implementation(libs.qodana.sarif)
+    implementation("com.segment.analytics.kotlin:core:1.21.0")
 //    implementation("com.jetbrains.qodana:qodana-sarif:0.2.8")
 }
 
