@@ -8,15 +8,15 @@ sealed class TelemetryEvent(open val eventKey: String) {
     abstract fun toPayload(): Map<String, Any?>
 }
 
-object ExtensionInstalledEvent : TelemetryEvent("extension_installed") {
+data object ExtensionInstalledEvent : TelemetryEvent("extension_installed") {
     override fun toPayload(): Map<String, Any?> = mapOf()
 }
 
-object CliInstallEvent : TelemetryEvent("cli_install") {
+data object CliInstallEvent : TelemetryEvent("cli_install") {
     override fun toPayload(): Map<String, Any?> = emptyMap()
 }
 
-object ExtensionUnloadedEvent : TelemetryEvent("extension_unloaded") {
+data object ExtensionUnloadedEvent : TelemetryEvent("extension_unloaded") {
     override fun toPayload(): Map<String, Any?> = emptyMap()
 }
 
@@ -43,7 +43,7 @@ data class UnexpectedErrorEvent(val message: String) : TelemetryEvent("Unexpecte
 @Service
 object Telemetry {
 
-    const val IDE: String = "jetbrains"
+    private const val IDE: String = "jetbrains"
 
     private val os: String = (System.getProperty("os.name") ?: "unknown").lowercase()
 
