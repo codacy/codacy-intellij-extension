@@ -3,6 +3,8 @@ package com.codacy.intellij.plugin.services.git
 import com.codacy.intellij.plugin.services.api.Api
 import com.codacy.intellij.plugin.services.api.models.*
 import com.codacy.intellij.plugin.services.common.*
+import com.codacy.intellij.plugin.telemetry.BranchStateChangeEvent
+import com.codacy.intellij.plugin.telemetry.Telemetry
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
