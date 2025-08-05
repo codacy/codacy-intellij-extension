@@ -11,8 +11,7 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow id="Codacy" anchor="left"
-                    factoryClass="com.codacy.intellij.plugin.views.CodacyPullRequestSummaryToolWindowFactory"
-                    canCloseContents="true"/>
+                    factoryClass="com.codacy.intellij.plugin.views.CodacyPullRequestSummaryToolWindowFactory"/>
 
         <!--TODO there might be a better way to annotate multiple languages-->
         <externalAnnotator language="ActionScript" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
