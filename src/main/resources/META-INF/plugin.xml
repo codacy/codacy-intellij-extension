@@ -11,8 +11,7 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow id="Codacy" anchor="left"
-                    factoryClass="com.codacy.intellij.plugin.views.CodacyPullRequestSummaryToolWindowFactory"
-                    canCloseContents="true"/>
+                    factoryClass="com.codacy.intellij.plugin.views.CodacyPullRequestSummaryToolWindowFactory"/>
 
         <!--TODO there might be a better way to annotate multiple languages-->
         <externalAnnotator language="ActionScript" implementationClass="com.codacy.intellij.plugin.views.SarifExternalAnnotator" />
@@ -68,9 +67,6 @@
                          displayName="Codacy inspection" shortName="Codacy" level="ERROR" runForWholeFile="true"/>
 
         <notificationGroup id="CodacyNotifications" displayType="BALLOON" toolWindowId="Codacy"/>
-
-        <statusBarWidgetFactory implementation="com.codacy.intellij.plugin.views.CodacyStatusBarWidgetFactory"
-                                id="com.codacy.intellij.plugin.CodacyStatusBarWidget"/>
 
         <postStartupActivity implementation="com.codacy.intellij.plugin.listeners.StartupListener"/>
 
