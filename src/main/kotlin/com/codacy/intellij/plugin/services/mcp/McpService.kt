@@ -9,6 +9,7 @@ import com.intellij.openapi.extensions.PluginId
 import com.intellij.openapi.project.Project
 import com.intellij.util.io.exists
 import java.io.File
+import java.nio.file.Path
 import java.nio.file.Paths
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
@@ -89,8 +90,8 @@ class McpService {
             rulesPath.writeText(
                 convertRulesToMarkdown(newRules)
             )
-            //TODO from vscode, not written yet
-            //addRulesToGitignore(rulesPath)
+            //TODO force cast
+            addRulesToGitignore(project.basePath!!, rulesPath)
         } else {
             try {
                 val existingContent = rulesPath.readText()
@@ -310,6 +311,24 @@ class McpService {
         val existingRules = existingContent.split("---")
         return existingRules.joinToString("---") { content ->
             if (content.contains(rules.name)) newCodacyRules else content
+        }
+    }
+
+    private fun addRulesToGitignore(projectPath: String, rulesPath: Path) {
+        val currentIDE = "IntelliJ"
+        //val workspacePath = //rulesPath.parent.toString()
+        val gitignorePath = Paths.get(projectPath, ".gitignore")
+        val relativeRulesPath = rulesPath.toAbsolutePath().toString().removePrefix(projectPath+ File.separator)
+        val gitignoreContent = "\n\n# Ignore $currentIDE AI rules\n$relativeRulesPath\n"
+        var existingGitignore: String
+        if (gitignorePath.exists()) {
+            existingGitignore = gitignorePath.readText()
+
+            if (!existingGitignore.split("\n").any { it.trim() == relativeRulesPath.trim() }) {
+                gitignorePath.toFile().appendText(gitignoreContent)
+            }
+        } else {
+            gitignorePath.writeText(gitignoreContent)
         }
     }
 
