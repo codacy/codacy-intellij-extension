@@ -6,6 +6,10 @@ import com.codacy.intellij.plugin.services.common.IconUtils
 import com.codacy.intellij.plugin.services.common.TimeoutManager
 import com.codacy.intellij.plugin.services.git.PullRequest
 import com.codacy.intellij.plugin.services.git.RepositoryManager
+import com.codacy.intellij.plugin.services.mcp.AiAgent
+import com.codacy.intellij.plugin.services.mcp.McpService
+import com.codacy.intellij.plugin.services.mcp.model.Provider
+import com.codacy.intellij.plugin.services.mcp.model.RepositoryParams
 import com.intellij.icons.AllIcons
 import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.Disposable
@@ -131,6 +135,17 @@ class CodacyPullRequestSummaryToolWindowFactory : ToolWindowFactory {
                 updateToolWindowContent(project, toolWindow)
             }
         }
+
+        val testButton = JButton("Test")
+        testButton.addActionListener {
+            val a = project.getService(McpService::class.java)
+            val aiAgent = AiAgent.JUNIE
+//            a.createConfiguration(aiAgent)
+            a.createOrUpdateRules(project, aiAgent,RepositoryParams(Provider.GITHUB, "codacy", "codacy-intellij-extension"))
+        }
+        buttonsPanel.add(testButton, BorderLayout.NORTH)
+
+
         buttonsPanel.add(initConfigButton, BorderLayout.NORTH)
         panel.add(buttonsPanel, BorderLayout.NORTH)
 
