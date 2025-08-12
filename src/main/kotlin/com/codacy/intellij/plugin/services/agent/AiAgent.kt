@@ -1,151 +1,33 @@
 package com.codacy.intellij.plugin.services.agent
 
-import com.codacy.intellij.plugin.services.agent.model.*
-import com.codacy.intellij.plugin.services.common.Config
+import com.codacy.intellij.plugin.services.agent.model.McpConfigGithubCopilot
+import com.codacy.intellij.plugin.services.agent.model.McpConfigJunie
+import com.codacy.intellij.plugin.services.agent.model.McpServerGithubCopilot
+import com.codacy.intellij.plugin.services.agent.model.McpServerJunie
 import com.google.gson.Gson
+import com.google.gson.JsonElement
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.openapi.extensions.PluginId
 import com.intellij.openapi.project.Project
 import com.intellij.util.io.exists
-import java.io.File
+import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import kotlin.io.path.isRegularFile
 import kotlin.io.path.readText
-import kotlin.io.path.writeText
 
 sealed class AiAgent() {
 
-    sealed interface AiAgentState {
-        object NOT_INSTALLED : AiAgentState
-        object INSTALLED : AiAgentState
-    }
-
-    sealed interface AiAgentPluginState {
-        object NOT_INSTALLED : AiAgentPluginState
-        object INSTALLED : AiAgentPluginState
-        object ENABLED : AiAgentPluginState
-    }
-
     abstract val pluginId: String
+
     abstract val mcpConfigurationPath: Path
     abstract val mcpConfigurationFilePath: Path
-    abstract var guidelinesAiAgentState: AiAgentState
-    abstract var mcpAiAgentState: AiAgentState
-    abstract var pluginState: AiAgentPluginState
+    abstract val guidelinesFilePath: Path
 
-    //TODO turn to val
-    abstract fun guidelinesFilePath(project: Project): Path
-
-    fun createOrUpdateConfiguration() {
-        val gson = Gson()
-
-        if (!mcpConfigurationPath.exists()) {
-            File(mcpConfigurationPath.toString()).mkdirs()
-        }
-
-        fun <S : McpServer, C : McpConfig> createOrUpdate(
-            makeServer: () -> S,
-            parseConfig: (String) -> C?,
-            extractServers: (C) -> Map<String, S>,
-            buildConfig: (Map<String, S>) -> Any
-        ) {
-            val server = makeServer()
-            val file = File(mcpConfigurationFilePath.toString())
-
-            if (mcpConfigurationFilePath.exists()) {
-                val json = file.readText()
-                val existing = try {
-                    parseConfig(json)
-                } catch (_: Exception) {
-                    mcpAiAgentState = AiAgentState.NOT_INSTALLED
-                    null
-                }
-                val current = existing?.let { extractServers(it) } ?: emptyMap()
-                val updatedMap = current.toMutableMap().apply { this["codacy"] = server }
-                val updatedConfig = buildConfig(updatedMap)
-                file.writeText(gson.toJson(updatedConfig))
-            } else {
-                val newConfig = buildConfig(mapOf("codacy" to server))
-                file.writeText(gson.toJson(newConfig))
-            }
-            mcpAiAgentState = AiAgentState.INSTALLED
-        }
-
-        when (this) {
-            JUNIE -> createOrUpdate(
-                makeServer = {
-                    McpServerJunie(
-                        command = "npx",
-                        args = listOf("-y", "@codacy/codacy-mcp"),
-                        env = mapOf(
-                            "CODACY_ACCOUNT_TOKEN" to "PUT TOKEN HERE", // TODO read from config
-                        )
-                    )
-                },
-                parseConfig = { json -> gson.fromJson(json, McpConfigJunie::class.java) },
-                extractServers = { cfg -> cfg.mcpServers },
-                buildConfig = { servers -> McpConfigJunie(mcpServers = servers) }
-            )
-
-            GITHUB_COPILOT -> createOrUpdate(
-                makeServer = {
-                    McpServerGithubCopilot(
-                        type = "stdio",
-                        command = "npx",
-                        args = listOf("-y", "@codacy/codacy-mcp"),
-                        env = mapOf(
-                            "CODACY_ACCOUNT_TOKEN" to "PUT TOKEN HERE", // TODO read from config
-                        )
-                    )
-                },
-                parseConfig = { json -> gson.fromJson(json, McpConfigGithubCopilot::class.java) },
-                extractServers = { cfg -> cfg.servers },
-                buildConfig = { servers -> McpConfigGithubCopilot(servers = servers) }
-            )
-        }
-    }
-
-    fun installGuidelines(project: Project, params: RepositoryParams?) {
-        if (!Config.instance.state.generateGuidelines) {
-            //TODO notification that it wont be ran
-            return
-        }
-
-        val basePath = project.basePath ?: throw RuntimeException("Project base path is null")
-
-        val newRules = McpRulesTemplate.newRulesTemplate(
-            project = project,
-            repositoryParams = params,
-            excludedScopes = listOf(RuleScope.GUARDRAILS)
-        )
-
-        val rulesPath = guidelinesFilePath(project)
-        val dirPath = rulesPath.parent
-
-        if (!dirPath.exists()) {
-            dirPath.toFile().mkdirs()
-        }
-
-
-        if (!rulesPath.exists()) {
-            rulesPath.writeText(
-                McpRulesTemplate.convertRulesToMarkdown(newRules)
-            )
-            McpRulesTemplate.addRulesToGitignore(basePath, rulesPath)
-            guidelinesAiAgentState = AiAgentState.INSTALLED
-        } else {
-            try {
-                val existingContent = rulesPath.readText()
-                rulesPath.writeText(
-                    McpRulesTemplate.convertRulesToMarkdown(newRules, existingContent)
-                )
-                guidelinesAiAgentState = AiAgentState.INSTALLED
-            } catch (e: Exception) {
-                guidelinesAiAgentState = AiAgentState.NOT_INSTALLED
-                //TODO in vscode there might be parsing error
-            }
-        }
-    }
+    abstract val projectPath: Path
+    abstract val homePath: Path
 
     fun isPluginEnabled(): Boolean {
         val id = PluginId.getId(pluginId)
@@ -157,52 +39,90 @@ sealed class AiAgent() {
     fun isPluginInstalled(): Boolean = PluginManagerCore
         .getPlugin(PluginId.getId(pluginId)) != null
 
-    //TODO this won't work, we have to check for a specific object
-    fun isMcpInstalled(project: Project): Boolean =
-        mcpConfigurationFilePath.exists()
+    fun isMcpInstalled(token: String?): Boolean {
+        if (token.isNullOrBlank()) return false
 
-    //TODO maybe check if files is not empty
-    fun isGuidelinesInstalled(project: Project): Boolean =
-        guidelinesFilePath(project).exists()
+        val path = mcpConfigurationFilePath
+        if (!path.exists() || !path.isRegularFile()) return false
 
+        val content = runCatching { path.readText() }.getOrElse { return false }
+        val root: JsonElement = runCatching { JsonParser.parseString(content) }.getOrElse { return false }
+        if (!root.isJsonObject) return false
 
-    object JUNIE : AiAgent() {
-        override val pluginId: String = "org.jetbrains.junie"
-        override var guidelinesAiAgentState: AiAgentState = AiAgentState.NOT_INSTALLED
-        override var mcpAiAgentState: AiAgentState = AiAgentState.NOT_INSTALLED
-        override var pluginState : AiAgentPluginState = AiAgentPluginState.NOT_INSTALLED
+        val obj = root.asJsonObject
 
-        private val homePath = System.getProperty("user.home")
+        val gson = Gson()
 
-        override val mcpConfigurationPath: Path = Paths.get(homePath, ".junie", "mcp")
-        override val mcpConfigurationFilePath: Path = Paths.get(mcpConfigurationPath.toString(), "mcp.json")
-
-
-        override fun guidelinesFilePath(project: Project): Path {
-            val basePath = project.basePath ?: throw IllegalStateException("Project base path is null")
-
-            return Paths.get(basePath, ".junie", "guidelines.md")
+        fun buildExpectedServer(): JsonObject {
+            return when (this@AiAgent) {
+                is JUNIE -> gson.toJsonTree(
+                    McpServerJunie(
+                        command = "npx",
+                        args = listOf("-y", "@codacy/codacy-mcp"),
+                        env = mapOf("CODACY_ACCOUNT_TOKEN" to token)
+                    )
+                ).asJsonObject
+                is GITHUB_COPILOT -> gson.toJsonTree(
+                    McpServerGithubCopilot(
+                        type = "stdio",
+                        command = "npx",
+                        args = listOf("-y", "@codacy/codacy-mcp"),
+                        env = mapOf("CODACY_ACCOUNT_TOKEN" to token)
+                    )
+                ).asJsonObject
+            }
         }
+
+        fun serversContainerName(): String {
+            val cfgJson = when (this@AiAgent) {
+                is JUNIE -> gson.toJsonTree(
+                    McpConfigJunie(emptyMap())
+                ).asJsonObject
+                is GITHUB_COPILOT -> gson.toJsonTree(
+                    McpConfigGithubCopilot(emptyMap())
+                ).asJsonObject
+            }
+            return cfgJson.entrySet().firstOrNull()?.key ?: return ""
+        }
+
+        val expected = buildExpectedServer()
+        val serversObj = obj.getAsJsonObject(serversContainerName()) ?: return false
+
+        // Compare by structure: any server exactly equals the expected stub
+        return serversObj.entrySet().any { (_, value) -> value.isJsonObject && value.asJsonObject == expected }
+    }
+
+    fun isGuidelinesInstalled(): Boolean = guidelinesFilePath.exists() &&
+                Files.isRegularFile(guidelinesFilePath) &&
+                runCatching { Files.size(guidelinesFilePath) }.getOrDefault(0L) > 0L
+
+
+    class JUNIE(override val projectPath: Path, override val homePath: Path) : AiAgent() {
+        override val pluginId: String = "org.jetbrains.junie"
+
+        override val mcpConfigurationPath: Path =
+            Paths.get(homePath.toString(), ".junie", "mcp")
+
+        override val mcpConfigurationFilePath: Path =
+            Paths.get(mcpConfigurationPath.toString(), "mcp.json")
+
+        override val guidelinesFilePath: Path =
+            Paths.get(projectPath.toString(), ".junie", "guidelines.md")
 
         override fun toString() = "Junie Agent"
     }
 
-    object GITHUB_COPILOT : AiAgent() {
+    class GITHUB_COPILOT(override val projectPath: Path, override val homePath: Path) : AiAgent() {
         override val pluginId: String = "com.github.copilot"
-        override var guidelinesAiAgentState: AiAgentState = AiAgentState.NOT_INSTALLED
-        override var mcpAiAgentState: AiAgentState = AiAgentState.NOT_INSTALLED
-        override var pluginState : AiAgentPluginState = AiAgentPluginState.NOT_INSTALLED
 
-        private val homePath = System.getProperty("user.home")
+        override val mcpConfigurationPath: Path =
+            Paths.get(homePath.toString(), ".config", "github-copilot", "intellij")
 
-        override val mcpConfigurationPath: Path = Paths.get(homePath, ".config", "github-copilot", "intellij")
-        override val mcpConfigurationFilePath: Path = Paths.get(mcpConfigurationPath.toString(), "mcp.json")
+        override val mcpConfigurationFilePath: Path =
+            Paths.get(mcpConfigurationPath.toString(), "mcp.json")
 
-        override fun guidelinesFilePath(project: Project): Path {
-            val basePath = project.basePath ?: throw IllegalStateException("Project base path is null")
-
-            return Paths.get(basePath, ".github", "copilot-instructions.md")
-        }
+        override val guidelinesFilePath: Path =
+            Paths.get(projectPath.toString(), ".github", "copilot-instructions.md")
 
         override fun toString() = "GitHub Copilot Agent"
     }

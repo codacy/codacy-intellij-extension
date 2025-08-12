@@ -90,11 +90,11 @@ class CodacyCliStatusBarWidget(private val project: Project) :
                 popup.add(installBtn)
             }
 
-            if (aiAgentService?.aiAgent?.mcpAiAgentState == AiAgent.AiAgentState.NOT_INSTALLED) {
+            if (aiAgentService?.mcpAiAgentState == AiAgentService.AiAgentState.NOT_INSTALLED) {
                 popup.add(installMcpButton())
             }
 
-            if (aiAgentService?.aiAgent?.guidelinesAiAgentState == AiAgent.AiAgentState.NOT_INSTALLED) {
+            if (aiAgentService?.guidelinesAiAgentState == AiAgentService.AiAgentState.NOT_INSTALLED) {
                 popup.add(installGuidelinesButton())
             }
 
@@ -106,8 +106,7 @@ class CodacyCliStatusBarWidget(private val project: Project) :
         val installGuidelinesBtn = JMenuItem("Install AiAgent Guidelines")
 
         installGuidelinesBtn.addActionListener {
-            AiAgentService.getService(project)
-                .installGuidelines(null)
+            aiAgentService?.installGuidelines(project,null)
         }
 
         return installGuidelinesBtn
@@ -116,8 +115,7 @@ class CodacyCliStatusBarWidget(private val project: Project) :
     private fun installMcpButton(): JMenuItem {
         val mcpInstalledBtn = JMenuItem("Install AiAgent MCP")
         mcpInstalledBtn.addActionListener {
-            AiAgentService.getService(project)
-                .createOrUpdateMcpConfiguration()
+            aiAgentService?.createOrUpdateMcpConfiguration()
         }
         return mcpInstalledBtn
     }
@@ -162,7 +160,7 @@ class CodacyCliStatusBarWidget(private val project: Project) :
             if (message != null) {
                 if (message == Messages.YES) {
                     GlobalScope.launch(Dispatchers.IO) {
-                        CodacyCliService.getService(project).prepareCli(true)
+                        cliService?.prepareCli(true)
                     }
                 }
             }
