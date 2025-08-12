@@ -24,7 +24,13 @@ class SarifExternalAnnotator : ExternalAnnotator<FileContentInfo, List<Processed
         private val logger = Logger.getInstance(SarifExternalAnnotator::class.java)
     }
 
+
     override fun collectInformation(file: PsiFile): FileContentInfo? {
+        val cliService = CodacyCliService.getService(file.project)
+        if (cliService.codacyCliState != CodacyCliService.CodacyCliState.INITIALIZED) {
+            return null
+        }
+
         val document = PsiDocumentManager.getInstance(file.project).getDocument(file) ?: return null
         val textHash = document.text.hashCode()
         logger.info("Collecting information for file: ${file.virtualFile.path}, hash: $textHash")
