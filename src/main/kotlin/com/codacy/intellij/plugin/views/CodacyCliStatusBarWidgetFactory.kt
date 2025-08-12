@@ -1,5 +1,6 @@
 package com.codacy.intellij.plugin.views
 
+import com.codacy.intellij.plugin.services.cli.CodacyCli
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.StatusBar
@@ -18,12 +19,13 @@ class CodacyCliStatusBarWidgetFactory: StatusBarWidgetFactory {
         // but CLI Service needs access to the widget,
         // and the widget will be instantiated before
         // StartupListener for some reason.
-        var widget: CodacyCliStatusBarWidget? = null
+//        var widget: CodacyCliStatusBarWidget? = null
     }
 
     override fun createWidget(project: Project): StatusBarWidget {
+        //TODO wont this create problems
         val widget = CodacyCliStatusBarWidget(project)
-        Companion.widget = widget
+//        Companion.widget = widget
         return widget
     }
 

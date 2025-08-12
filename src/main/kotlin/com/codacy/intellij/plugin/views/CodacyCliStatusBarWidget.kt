@@ -1,9 +1,10 @@
 package com.codacy.intellij.plugin.views
 
+import com.codacy.intellij.plugin.listeners.ServiceState
+import com.codacy.intellij.plugin.listeners.WidgetStateListener
 import com.codacy.intellij.plugin.services.cli.CodacyCli
-import com.codacy.intellij.plugin.services.common.IconUtils
+import com.codacy.intellij.plugin.services.cli.CodacyCli.CliState
 import com.codacy.intellij.plugin.services.mcp.AiAgentService
-import com.intellij.icons.AllIcons
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.wm.StatusBar
@@ -18,48 +19,14 @@ import java.awt.event.MouseEvent
 import javax.swing.Icon
 import javax.swing.JMenuItem
 
-class CodacyCliStatusBarWidget(private val project: Project) : StatusBarWidget, StatusBarWidget.IconPresentation {
+class CodacyCliStatusBarWidget(private val project: Project) :
+    StatusBarWidget, StatusBarWidget.IconPresentation {
 
     //TODO
     private data class AiStatus(val mcpInstalled: Boolean, val guidelinesInstalled: Boolean)
 
-    sealed interface CliState {
-        val icon: Icon
-
-        data object INSTALLED : CliState {
-            override fun toString() = "Installed"
-            override val icon: Icon = AllIcons.General.Information
-        }
-
-        data object INITIALIZED : CliState {
-            override fun toString() = "Initialized"
-            override val icon: Icon = IconUtils.CodacyIcon
-        }
-
-        data object INSTALLING : CliState {
-            override fun toString() = "Installing"
-            override val icon: Icon = AnimatedIcon.Default.INSTANCE
-        }
-
-        data object ANALYZING : CliState {
-            override fun toString() = "Analyzing"
-            override val icon: Icon = AnimatedIcon.Default.INSTANCE
-        }
-
-        data object ERROR : CliState {
-            override fun toString() = "Error"
-            override val icon: Icon = AllIcons.General.ErrorDialog
-        }
-
-        data object NOT_INSTALLED : CliState {
-            override fun toString() = "Not Installed"
-            override val icon: Icon = AllIcons.General.Gear
-        }
-    }
-
     var statusBar: StatusBar? = null
-
-    private var cliState: CliState = CliState.NOT_INSTALLED
+    private var cliService: CodacyCli? = null
 
     override fun ID(): String = "com.codacy.intellij.plugin.views.CodacyCliStatusBarWidget"
 
@@ -67,20 +34,47 @@ class CodacyCliStatusBarWidget(private val project: Project) : StatusBarWidget, 
         this.statusBar = statusBar
     }
 
+    init {
+        project.messageBus.connect().subscribe(WidgetStateListener.TOPIC, object : WidgetStateListener {
+            override fun stateChanged(newState: ServiceState) {
+                if (newState == ServiceState.RUNNING) {
+                    val _cliService = CodacyCli.getService(project)
+                    cliService = _cliService
+                    init(_cliService)
+
+                    statusBar?.updateWidget(ID())
+                }
+            }
+        })
+    }
+
+    //TODO
+    fun init(cliService: CodacyCli) {
+        cliService.addStateListener { newState ->
+//            _icon = newState.icon
+            this.cliState = newState
+            statusBar?.updateWidget(ID())
+        }
+    }
+
+//    var _icon: Icon = AnimatedIcon.Default()
+
+    var cliState: CodacyCli.CliState? = null
+
     override fun dispose() {}
 
     override fun getPresentation(): StatusBarWidget.WidgetPresentation = this
 
-    override fun getIcon(): Icon = cliState.icon
+    override fun getIcon(): Icon = cliService?.cliState?.icon ?: CliState.NOT_INSTALLED.icon
 
     override fun getTooltipText(): String {
         return when (cliState) {
-            is CliState.INSTALLED -> "Codacy CLI is installed, waiting to be initialized"
-            is CliState.INSTALLING -> "Codacy CLI is being installed, please wait..."
-            is CliState.INITIALIZED -> "Codacy CLI is initialized and ready to use"
-            is CliState.ANALYZING -> "Codacy CLI is analyzing your code, please wait..."
-            is CliState.ERROR -> "An error occurred with Codacy CLI: $cliState"
-            is CliState.NOT_INSTALLED -> "Codacy CLI is not installed, please install it"
+            is CodacyCli.CliState.INSTALLED -> "Codacy CLI is installed, waiting to be initialized"
+            is CodacyCli.CliState.INSTALLING -> "Codacy CLI is being installed, please wait..."
+            is CodacyCli.CliState.INITIALIZED -> "Codacy CLI is initialized and ready to use"
+            is CodacyCli.CliState.ANALYZING -> "Codacy CLI is analyzing your code, please wait..."
+            is CodacyCli.CliState.ERROR -> "An error occurred with Codacy CLI: $cliState"
+            is CodacyCli.CliState.NOT_INSTALLED -> "Codacy CLI is not installed, please install it"
             else -> "Something went wrong"
         }
     }
@@ -95,7 +89,7 @@ class CodacyCliStatusBarWidget(private val project: Project) : StatusBarWidget, 
             val popup = javax.swing.JPopupMenu()
 
             if (!cliStatus) {
-               popup.add(installCliButton())
+                popup.add(installCliButton())
             }
 
             if (!aiAgentStatus.mcpInstalled) {
@@ -135,7 +129,7 @@ class CodacyCliStatusBarWidget(private val project: Project) : StatusBarWidget, 
         val installCliBtn = JMenuItem("Install CLI")
         installCliBtn.addActionListener {
             val message = when (cliState) {
-                is CliState.ERROR, CliState.NOT_INSTALLED -> Messages.showYesNoDialog(
+                is CodacyCli.CliState.ERROR, CodacyCli.CliState.NOT_INSTALLED -> Messages.showYesNoDialog(
                     project,
                     "For CLI to work, you need to install it",
                     "CLI Not Installed",
@@ -144,7 +138,7 @@ class CodacyCliStatusBarWidget(private val project: Project) : StatusBarWidget, 
                     Messages.getQuestionIcon()
                 )
 
-                is CliState.INSTALLED -> Messages.showYesNoDialog(
+                is CodacyCli.CliState.INSTALLED -> Messages.showYesNoDialog(
                     project,
                     "CLI is installed, but not initialized. Would you like to initialize it now?",
                     "Partial CLI Installation",
@@ -184,8 +178,8 @@ class CodacyCliStatusBarWidget(private val project: Project) : StatusBarWidget, 
                 cliService.isCodacyDirectoryPresent()
     }
 
-    fun updateStatus(cliState: CliState) {
-        this.cliState = cliState
+    fun updateStatus(cliState: CodacyCli.CliState) {
+//        this.cliState = cliState
         statusBar?.updateWidget(ID())
     }
 }
