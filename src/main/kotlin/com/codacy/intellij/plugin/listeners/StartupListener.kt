@@ -15,6 +15,7 @@ import com.intellij.ide.plugins.DynamicPluginListener
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.StartupActivity
+import com.intellij.util.messages.Topic
 import git4idea.repo.GitRepository
 import git4idea.repo.GitRepositoryChangeListener
 import kotlinx.coroutines.*
@@ -46,7 +47,6 @@ class StartupListener : StartupActivity {
 
         CodacyCli.getService(
             gitInfo.provider, gitInfo.organization, gitInfo.repository, project,
-            CodacyCliStatusBarWidgetFactory.widget!!
         )
 
         AiAgentService.getService(project)
