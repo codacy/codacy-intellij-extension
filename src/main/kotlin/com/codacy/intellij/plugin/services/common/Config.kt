@@ -49,7 +49,8 @@ class Config : PersistentStateComponent<Config.State> {
         var hasSentInstallTelemetry: Boolean = false,
         var anonymousId: String = UUID.randomUUID().toString(),
         var userId: Int? = null,
-        var isFirstRun: Boolean = true
+        var isFirstRun: Boolean = true,
+        var generateGuidelines: Boolean = false
     )
 
     override fun getState(): State = state

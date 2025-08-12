@@ -15,6 +15,8 @@ class ConfigConfigurable : SearchableConfigurable {
     override fun createComponent(): JComponent? {
         form = ConfigWindowForm()
         fetchAllAvailableCliVersions()
+        // Initialize checkbox with current state
+        form?.setGenerateGuidelines(config.state.generateGuidelines)
         return form?.component
     }
 
@@ -36,17 +38,21 @@ class ConfigConfigurable : SearchableConfigurable {
 
     override fun isModified(): Boolean {
         val state = Config.instance.state
-        return form?.getSelectedAvailableCliVersion() != state.selectedCliVersion
+        val versionChanged = form?.getSelectedAvailableCliVersion() != state.selectedCliVersion
+        val generateGuidelinesChanged = (form?.getGenerateGuidelines() ?: false) != state.generateGuidelines
+        return versionChanged || generateGuidelinesChanged
     }
 
     override fun apply() {
         val state = Config.instance.state
         state.selectedCliVersion = form?.getSelectedAvailableCliVersion() ?: ""
+        state.generateGuidelines = form?.getGenerateGuidelines() ?: false
     }
 
     override fun reset() {
         val state = Config.instance.state
         form?.setAvailableCliVersionsDropdown(state.availableCliVersions, state.selectedCliVersion)
+        form?.setGenerateGuidelines(state.generateGuidelines)
     }
 
     override fun getDisplayName(): String = "Codacy Plugin Settings"

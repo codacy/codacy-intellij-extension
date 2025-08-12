@@ -7,6 +7,7 @@ import com.codacy.intellij.plugin.services.common.GitRemoteParser
 import com.codacy.intellij.plugin.services.common.IconUtils
 import com.codacy.intellij.plugin.services.git.GitProvider
 import com.codacy.intellij.plugin.services.git.RepositoryManager
+import com.codacy.intellij.plugin.services.mcp.AiAgentService
 import com.codacy.intellij.plugin.telemetry.Telemetry
 import com.codacy.intellij.plugin.telemetry.ExtensionInstalledEvent
 import com.codacy.intellij.plugin.views.CodacyCliStatusBarWidgetFactory
@@ -47,6 +48,8 @@ class StartupListener : StartupActivity {
             gitInfo.provider, gitInfo.organization, gitInfo.repository, project,
             CodacyCliStatusBarWidgetFactory.widget!!
         )
+
+        AiAgentService.getService(project)
 
         GlobalScope.launch {
             Api().listTools()
