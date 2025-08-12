@@ -2,6 +2,7 @@ package com.codacy.intellij.plugin.services.cli
 
 import com.codacy.intellij.plugin.listeners.ServiceState
 import com.codacy.intellij.plugin.listeners.WidgetStateListener
+import com.codacy.intellij.plugin.services.agent.model.Provider
 import com.codacy.intellij.plugin.services.cli.behaviour.UnixBehaviour
 import com.codacy.intellij.plugin.services.cli.behaviour.WindowsCliBehaviour
 import com.codacy.intellij.plugin.services.cli.models.ProcessedSarifResult
@@ -80,8 +81,7 @@ class CodacyCliService() {
         }
     }
 
-    //TODO change to Provider class
-    lateinit var provider: String
+    lateinit var provider: Provider
     lateinit var organization: String
     lateinit var repository: String
     lateinit var project: Project
@@ -104,7 +104,7 @@ class CodacyCliService() {
     var cliCommand: String = ""
 
     private fun initService(
-        provider: String,
+        provider: Provider,
         organization: String,
         repository: String,
         project: Project,
@@ -149,7 +149,7 @@ class CodacyCliService() {
             val gitInfo = GitRemoteParser.parseGitRemote(remote.firstUrl!!)
 
             return getService(
-                gitInfo.provider,
+                Provider.fromString(gitInfo.provider),
                 gitInfo.organization,
                 gitInfo.repository,
                 project,
@@ -157,7 +157,7 @@ class CodacyCliService() {
         }
 
         fun getService(
-            provider: String,
+            provider: Provider,
             organization: String,
             repository: String,
             project: Project,
@@ -347,11 +347,10 @@ class CodacyCliService() {
             val initParams = if (
                 this.accountToken?.isNotBlank() == true &&
                 this.repository.isNotBlank() &&
-                this.provider.isNotBlank() &&
                 this.organization.isNotBlank()
             ) {
                 mapOf(
-                    "provider" to this.provider,
+                    "provider" to this.provider.toString(),
                     "organization" to this.organization,
                     "repository" to this.repository,
                     "api-token" to this.accountToken!!

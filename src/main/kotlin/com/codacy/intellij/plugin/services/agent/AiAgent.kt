@@ -10,7 +10,6 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.openapi.extensions.PluginId
-import com.intellij.openapi.project.Project
 import com.intellij.util.io.exists
 import java.nio.file.Files
 import java.nio.file.Path
@@ -88,7 +87,6 @@ sealed class AiAgent() {
         val expected = buildExpectedServer()
         val serversObj = obj.getAsJsonObject(serversContainerName()) ?: return false
 
-        // Compare by structure: any server exactly equals the expected stub
         return serversObj.entrySet().any { (_, value) -> value.isJsonObject && value.asJsonObject == expected }
     }
 

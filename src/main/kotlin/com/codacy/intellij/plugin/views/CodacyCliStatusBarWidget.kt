@@ -2,8 +2,8 @@ package com.codacy.intellij.plugin.views
 
 import com.codacy.intellij.plugin.listeners.ServiceState
 import com.codacy.intellij.plugin.listeners.WidgetStateListener
-import com.codacy.intellij.plugin.services.agent.AiAgent
 import com.codacy.intellij.plugin.services.agent.AiAgentService
+import com.codacy.intellij.plugin.services.agent.model.RepositoryParams
 import com.codacy.intellij.plugin.services.cli.CodacyCliService
 import com.codacy.intellij.plugin.services.cli.CodacyCliService.CodacyCliState
 import com.intellij.openapi.project.Project
@@ -103,10 +103,18 @@ class CodacyCliStatusBarWidget(private val project: Project) :
     }
 
     private fun installGuidelinesButton(): JMenuItem {
+        val _cliService = cliService ?: throw RuntimeException("CliService not initialized, this should not happen")
+
         val installGuidelinesBtn = JMenuItem("Install AiAgent Guidelines")
 
         installGuidelinesBtn.addActionListener {
-            aiAgentService?.installGuidelines(project,null)
+            aiAgentService?.installGuidelines(
+                project, RepositoryParams(
+                    provider = _cliService.provider,
+                    organization = _cliService.organization,
+                    repository = _cliService.repository,
+                )
+            )
         }
 
         return installGuidelinesBtn
