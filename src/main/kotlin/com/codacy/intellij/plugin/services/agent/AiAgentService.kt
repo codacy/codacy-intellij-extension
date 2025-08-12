@@ -1,9 +1,10 @@
-package com.codacy.intellij.plugin.services.mcp
+package com.codacy.intellij.plugin.services.agent
 
+import com.codacy.intellij.plugin.services.agent.model.RepositoryParams
+import com.codacy.intellij.plugin.services.cli.CodacyCliService.CodacyCliState
 import com.codacy.intellij.plugin.services.common.Config
 import com.codacy.intellij.plugin.services.common.GitRemoteParser
 import com.codacy.intellij.plugin.services.git.GitProvider
-import com.codacy.intellij.plugin.services.mcp.model.RepositoryParams
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
 
@@ -22,7 +23,16 @@ class AiAgentService() {
     private val config = Config.instance
     private var accountToken = config.storedApiToken
 
+    private val cliStateListeners = mutableListOf<() -> Unit>()
     private var isServiceInstantiated: Boolean = false
+
+    //TODO move down
+    fun updateWidgetState(codacyCliState: CodacyCliState) {
+        this.codacyCliState = codacyCliState
+        cliStateListeners.forEach {
+            it()
+        }
+    }
 
     companion object {
         fun getService(project: Project): AiAgentService {
@@ -56,10 +66,6 @@ class AiAgentService() {
         aiAgent.createOrUpdateConfiguration()
     }
 
-    //TODO
-    val aiAgentState
-        get() = aiAgent.state
-
 
     private fun initService(
         provider: String,
@@ -77,6 +83,21 @@ class AiAgentService() {
             this.rootPath = project.basePath!!//TODO, include WSL //cliBehaviour.rootPath(project)
             this.aiAgent = aiAgent
 
+            aiAgent.mcpAiAgentState = AiAgent.AiAgentState.NOT_INSTALLED
+            aiAgent.guidelinesAiAgentState = AiAgent.AiAgentState.NOT_INSTALLED
+            aiAgent.pluginState = AiAgent.AiAgentPluginState.NOT_INSTALLED
+
+            if (aiAgent.isMcpInstalled(project))
+                aiAgent.mcpAiAgentState = AiAgent.AiAgentState.INSTALLED
+
+            if (aiAgent.isGuidelinesInstalled(project))
+                aiAgent.guidelinesAiAgentState = AiAgent.AiAgentState.INSTALLED
+
+            if (aiAgent.isPluginInstalled())
+                aiAgent.pluginState = AiAgent.AiAgentPluginState.INSTALLED
+
+            if (aiAgent.isPluginEnabled())
+                aiAgent.pluginState = AiAgent.AiAgentPluginState.ENABLED
 
             this.isServiceInstantiated = true
         }
