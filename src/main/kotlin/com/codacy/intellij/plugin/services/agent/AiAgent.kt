@@ -1,7 +1,7 @@
-package com.codacy.intellij.plugin.services.mcp
+package com.codacy.intellij.plugin.services.agent
 
+import com.codacy.intellij.plugin.services.agent.model.*
 import com.codacy.intellij.plugin.services.common.Config
-import com.codacy.intellij.plugin.services.mcp.model.*
 import com.google.gson.Gson
 import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.openapi.extensions.PluginId
@@ -13,19 +13,25 @@ import java.nio.file.Paths
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
-//TODO maybe make it sealed class instead
 sealed class AiAgent() {
 
-    sealed interface State {
-        object NOT_INSTALLED : State
-        object INSTALLED : State
-        object ENABLED : State
+    sealed interface AiAgentState {
+        object NOT_INSTALLED : AiAgentState
+        object INSTALLED : AiAgentState
+    }
+
+    sealed interface AiAgentPluginState {
+        object NOT_INSTALLED : AiAgentPluginState
+        object INSTALLED : AiAgentPluginState
+        object ENABLED : AiAgentPluginState
     }
 
     abstract val pluginId: String
     abstract val mcpConfigurationPath: Path
     abstract val mcpConfigurationFilePath: Path
-    abstract var state: State
+    abstract var guidelinesAiAgentState: AiAgentState
+    abstract var mcpAiAgentState: AiAgentState
+    abstract var pluginState: AiAgentPluginState
 
     //TODO turn to val
     abstract fun guidelinesFilePath(project: Project): Path
@@ -51,6 +57,7 @@ sealed class AiAgent() {
                 val existing = try {
                     parseConfig(json)
                 } catch (_: Exception) {
+                    mcpAiAgentState = AiAgentState.NOT_INSTALLED
                     null
                 }
                 val current = existing?.let { extractServers(it) } ?: emptyMap()
@@ -61,6 +68,7 @@ sealed class AiAgent() {
                 val newConfig = buildConfig(mapOf("codacy" to server))
                 file.writeText(gson.toJson(newConfig))
             }
+            mcpAiAgentState = AiAgentState.INSTALLED
         }
 
         when (this) {
@@ -98,7 +106,7 @@ sealed class AiAgent() {
     }
 
     fun installGuidelines(project: Project, params: RepositoryParams?) {
-        if(!Config.instance.state.generateGuidelines){
+        if (!Config.instance.state.generateGuidelines) {
             //TODO notification that it wont be ran
             return
         }
@@ -124,13 +132,16 @@ sealed class AiAgent() {
                 McpRulesTemplate.convertRulesToMarkdown(newRules)
             )
             McpRulesTemplate.addRulesToGitignore(basePath, rulesPath)
+            guidelinesAiAgentState = AiAgentState.INSTALLED
         } else {
             try {
                 val existingContent = rulesPath.readText()
                 rulesPath.writeText(
                     McpRulesTemplate.convertRulesToMarkdown(newRules, existingContent)
                 )
+                guidelinesAiAgentState = AiAgentState.INSTALLED
             } catch (e: Exception) {
+                guidelinesAiAgentState = AiAgentState.NOT_INSTALLED
                 //TODO in vscode there might be parsing error
             }
         }
@@ -155,11 +166,11 @@ sealed class AiAgent() {
         guidelinesFilePath(project).exists()
 
 
-    fun isGuideInstalled(): Boolean = false //TODO
-
     object JUNIE : AiAgent() {
         override val pluginId: String = "org.jetbrains.junie"
-        override var state: State = State.NOT_INSTALLED
+        override var guidelinesAiAgentState: AiAgentState = AiAgentState.NOT_INSTALLED
+        override var mcpAiAgentState: AiAgentState = AiAgentState.NOT_INSTALLED
+        override var pluginState : AiAgentPluginState = AiAgentPluginState.NOT_INSTALLED
 
         private val homePath = System.getProperty("user.home")
 
@@ -178,7 +189,9 @@ sealed class AiAgent() {
 
     object GITHUB_COPILOT : AiAgent() {
         override val pluginId: String = "com.github.copilot"
-        override var state: State = State.NOT_INSTALLED
+        override var guidelinesAiAgentState: AiAgentState = AiAgentState.NOT_INSTALLED
+        override var mcpAiAgentState: AiAgentState = AiAgentState.NOT_INSTALLED
+        override var pluginState : AiAgentPluginState = AiAgentPluginState.NOT_INSTALLED
 
         private val homePath = System.getProperty("user.home")
 

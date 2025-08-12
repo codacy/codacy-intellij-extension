@@ -1,4 +1,4 @@
-package com.codacy.intellij.plugin.services.mcp.model
+package com.codacy.intellij.plugin.services.agent.model
 
 enum class Provider {
     GITHUB, GITLAB, BITBUCKET;

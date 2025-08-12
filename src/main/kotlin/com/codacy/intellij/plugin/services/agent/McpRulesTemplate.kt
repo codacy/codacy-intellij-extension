@@ -1,10 +1,10 @@
-package com.codacy.intellij.plugin.services.mcp
+package com.codacy.intellij.plugin.services.agent
 
 import com.codacy.intellij.plugin.services.common.Config
-import com.codacy.intellij.plugin.services.mcp.model.RepositoryParams
-import com.codacy.intellij.plugin.services.mcp.model.Rule
-import com.codacy.intellij.plugin.services.mcp.model.RuleConfig
-import com.codacy.intellij.plugin.services.mcp.model.RuleScope
+import com.codacy.intellij.plugin.services.agent.model.RepositoryParams
+import com.codacy.intellij.plugin.services.agent.model.Rule
+import com.codacy.intellij.plugin.services.agent.model.RuleConfig
+import com.codacy.intellij.plugin.services.agent.model.RuleScope
 import com.intellij.openapi.project.Project
 import com.intellij.util.io.exists
 import java.io.File
