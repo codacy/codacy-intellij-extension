@@ -58,13 +58,11 @@ object McpRulesTemplate {
                             "To add a new rule for code analysis, follow these steps:",
                             "- Create or edit a file named `enigma.yaml` in the root of the project.",
                             "- Each rule should be listed under the `rules:` key as an item in a YAML list.",
-                            //TODO make sure this formatting is correct
-                            //TODO this is slightly incorrect, left space between dollar and keyword
                             """- Example rule format:
                         ```yaml
                         rules:,
                           - Id: python_hardcoded_password,
-                            Pattern: $ PASSWORD = $ VALUE, 
+                            Pattern: ${'$'}PASSWORD = ${'$'}VALUE, 
                             Description: Detects hardcoded passwords in string variable declarations,
                             Category: Security,
                             MetaTags:,
@@ -186,7 +184,6 @@ object McpRulesTemplate {
         )
 
         val allRulesFiltered = (repositoryRules + commonRules + enigmaRules).filter {
-            //TODO make sure this makes sense
             !(excludedScopes?.contains(it.scope) ?: false)
         }
 

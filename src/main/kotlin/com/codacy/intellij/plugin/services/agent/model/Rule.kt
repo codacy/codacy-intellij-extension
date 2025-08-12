@@ -11,13 +11,14 @@ enum class Provider {
         }
     }
 
-    fun fromString(s: String): Provider = when (s) {
-        "github", "gh" -> GITHUB
-        "bitbucket", "bb" -> BITBUCKET
-        "gitlab", "gl" -> GITLAB
-        else -> throw IllegalArgumentException("Unknown provider")
+    companion object {
+        fun fromString(s: String): Provider = when (s) {
+            "github", "gh" -> GITHUB
+            "bitbucket", "bb" -> BITBUCKET
+            "gitlab", "gl" -> GITLAB
+            else -> throw IllegalArgumentException("Unknown provider")
+        }
     }
-
 }
 
 enum class RuleScope {

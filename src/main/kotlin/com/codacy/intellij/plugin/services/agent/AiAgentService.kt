@@ -8,14 +8,17 @@ import com.codacy.intellij.plugin.services.agent.model.McpConfigJunie
 import com.codacy.intellij.plugin.services.agent.model.McpServer
 import com.codacy.intellij.plugin.services.agent.model.McpServerGithubCopilot
 import com.codacy.intellij.plugin.services.agent.model.McpServerJunie
+import com.codacy.intellij.plugin.services.agent.model.Provider
 import com.codacy.intellij.plugin.services.agent.model.RepositoryParams
 import com.codacy.intellij.plugin.services.agent.model.RuleScope
 import com.codacy.intellij.plugin.services.common.Config
 import com.codacy.intellij.plugin.services.common.GitRemoteParser
 import com.codacy.intellij.plugin.services.git.GitProvider
 import com.google.gson.Gson
+import com.intellij.notification.NotificationType
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.updateSettings.impl.pluginsAdvertisement.notificationGroup
 import java.io.File
 import java.nio.file.Paths
 import kotlin.io.path.exists
@@ -43,8 +46,7 @@ class AiAgentService() {
     lateinit var aiAgent: AiAgent
     lateinit var project: Project
 
-    //TODO change to Provider class
-    lateinit var provider: String
+    lateinit var provider: Provider
     lateinit var organization: String
     lateinit var repository: String
     lateinit var rootPath: String
@@ -75,7 +77,7 @@ class AiAgentService() {
                 Paths.get(System.getProperty("user.home") ?: throw RuntimeException("Failed to get user home")),
             )
 
-            service.initService(gitInfo.provider, gitInfo.organization, gitInfo.repository, project, aiAgent)
+            service.initService(Provider.fromString(gitInfo.provider), gitInfo.organization, gitInfo.repository, project, aiAgent)
 
             return service
         }
@@ -83,7 +85,7 @@ class AiAgentService() {
 
 
     private fun initService(
-        provider: String,
+        provider: Provider,
         organization: String,
         repository: String,
         project: Project,
@@ -192,7 +194,11 @@ class AiAgentService() {
 
     fun installGuidelines(project: Project, params: RepositoryParams?) {
         if (!Config.instance.state.generateGuidelines) {
-            //TODO notification that it wont be ran
+            notificationGroup.createNotification(
+                "Guidelines won't be installed",
+                "Plugin settings have guidelines disabled, if you want to enable this, please check plugin settings",
+                NotificationType.WARNING,
+            ).notify(project)
             return
         }
 
@@ -227,7 +233,10 @@ class AiAgentService() {
                 guidelinesAiAgentState = AiAgentState.INSTALLED
             } catch (e: Exception) {
                 guidelinesAiAgentState = AiAgentState.NOT_INSTALLED
-                //TODO in vscode there might be parsing error
+                notificationGroup.createNotification(
+                    "Paring error while installing guidelines",
+                    NotificationType.ERROR,
+                ).notify(project)
             }
         }
     }

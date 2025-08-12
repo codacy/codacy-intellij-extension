@@ -1,6 +1,7 @@
 package com.codacy.intellij.plugin.listeners
 
 import com.codacy.intellij.plugin.services.agent.AiAgentService
+import com.codacy.intellij.plugin.services.agent.model.Provider
 import com.codacy.intellij.plugin.services.api.Api
 import com.codacy.intellij.plugin.services.cli.CodacyCliService
 import com.codacy.intellij.plugin.services.common.Config
@@ -11,11 +12,9 @@ import com.codacy.intellij.plugin.services.git.RepositoryManager
 import com.codacy.intellij.plugin.telemetry.ExtensionInstalledEvent
 import com.codacy.intellij.plugin.telemetry.Telemetry
 import com.intellij.ide.plugins.DynamicPluginListener
-import com.intellij.notification.NotificationType
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.StartupActivity
-import com.intellij.openapi.updateSettings.impl.pluginsAdvertisement.notificationGroup
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.openapi.vfs.newvfs.BulkFileListener
 import com.intellij.openapi.vfs.newvfs.events.VFileEvent
@@ -26,7 +25,7 @@ import kotlinx.coroutines.*
 class StartupListener : StartupActivity {
 
     companion object {
-        private const val MIN_INTERVAL_MS = 5000L
+        private const val MIN_REFRESH_INTERVAL_MS = 5000L
     }
 
     private var lastTriggeredTime = 0L
@@ -53,11 +52,6 @@ class StartupListener : StartupActivity {
 
         val gitInfo = GitRemoteParser.parseGitRemote(remote.firstUrl!!)
 
-        CodacyCliService.getService(
-            gitInfo.provider, gitInfo.organization, gitInfo.repository, project,
-        )
-
-        AiAgentService.getService(project)
 
         GlobalScope.launch {
             Api().listTools()
@@ -81,7 +75,7 @@ class StartupListener : StartupActivity {
         connection.subscribe(VirtualFileManager.VFS_CHANGES, object : BulkFileListener {
             private fun handle(events: List<VFileEvent>) {
                 val now = System.currentTimeMillis()
-                if (now - lastTriggeredTime >= MIN_INTERVAL_MS) {
+                if (now - lastTriggeredTime >= MIN_REFRESH_INTERVAL_MS) {
                     val basePath = project.basePath
                     if (basePath != null && events.any { it.path.startsWith(basePath) }) {
                         lastTriggeredTime = now
@@ -98,17 +92,19 @@ class StartupListener : StartupActivity {
                 handle(events)
             }
         })
+
+
+        CodacyCliService.getService(
+            Provider.fromString(gitInfo.provider), gitInfo.organization, gitInfo.repository, project,
+        )
+
+        AiAgentService.getService(project)
     }
 
     //Re-triggering services helps with keeping the state of the plugin consistent
     // E.g. if the user deletes CLI.sh, re-initialization of the project will check for the
     // presence of the CLI and mark its state as not-installed
     private fun onProjectFileSystemChange(project: Project, events: List<VFileEvent>) {
-        //TODO delete
-        notificationGroup.createNotification(
-            "trigger",
-            NotificationType.INFORMATION,
-        ).notify(project)
         CodacyCliService.getService(project)
         AiAgentService.getService(project)
     }
