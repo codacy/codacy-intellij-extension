@@ -1,12 +1,5 @@
 package com.codacy.intellij.plugin.services.mcp.model
 
-import com.codacy.intellij.plugin.services.common.Config
-import com.intellij.openapi.project.Project
-import java.io.File
-import java.nio.file.Paths
-import kotlin.io.path.exists
-
-//TODO this might already exist somewhere else
 enum class Provider {
     GITHUB, GITLAB, BITBUCKET;
 
@@ -17,6 +10,14 @@ enum class Provider {
             BITBUCKET -> "bb"
         }
     }
+
+    fun fromString(s: String): Provider = when (s) {
+        "github", "gh" -> GITHUB
+        "bitbucket", "bb" -> BITBUCKET
+        "gitlab", "gl" -> GITLAB
+        else -> throw IllegalArgumentException("Unknown provider")
+    }
+
 }
 
 enum class RuleScope {

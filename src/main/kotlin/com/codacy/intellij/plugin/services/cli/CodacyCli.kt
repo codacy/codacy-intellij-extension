@@ -43,6 +43,7 @@ class CodacyCli() {
 
     var cliCommand: String = ""
 
+    //TODO change to Provider class
     lateinit var provider: String
     lateinit var organization: String
     lateinit var repository: String
@@ -90,11 +91,11 @@ class CodacyCli() {
         val isCliShellFilePresent = isCliShellFilePresent()
 
         if (isSettingsPresent && isCliShellFilePresent) {
-            updateWidgetState(CodacyCliStatusBarWidget.State.INITIALIZED)
+            updateWidgetState(CodacyCliStatusBarWidget.CliState.INITIALIZED)
         } else if (isCliShellFilePresent) {
-            updateWidgetState(CodacyCliStatusBarWidget.State.INSTALLED)
+            updateWidgetState(CodacyCliStatusBarWidget.CliState.INSTALLED)
         } else {
-            updateWidgetState(CodacyCliStatusBarWidget.State.NOT_INSTALLED)
+            updateWidgetState(CodacyCliStatusBarWidget.CliState.NOT_INSTALLED)
         }
     }
 
@@ -174,25 +175,25 @@ class CodacyCli() {
         var _cliCommand = findCliCommand()
 
         if (!isCliShellFilePresent()) {
-            updateWidgetState(CodacyCliStatusBarWidget.State.INSTALLING)
+            updateWidgetState(CodacyCliStatusBarWidget.CliState.INSTALLING)
 
             if (_cliCommand == null) {
                 _cliCommand = installCli()
                 if (_cliCommand == null) {
-                    updateWidgetState(CodacyCliStatusBarWidget.State.ERROR)
+                    updateWidgetState(CodacyCliStatusBarWidget.CliState.ERROR)
                     return
                 }
             }
 
-            updateWidgetState(CodacyCliStatusBarWidget.State.INSTALLED)
+            updateWidgetState(CodacyCliStatusBarWidget.CliState.INSTALLED)
             cliCommand = _cliCommand
         } else if (cliCommand.isBlank() && isCliShellFilePresent()) {
-            updateWidgetState(CodacyCliStatusBarWidget.State.INSTALLING)
+            updateWidgetState(CodacyCliStatusBarWidget.CliState.INSTALLING)
             if (_cliCommand != null) {
-                updateWidgetState(CodacyCliStatusBarWidget.State.INSTALLED)
+                updateWidgetState(CodacyCliStatusBarWidget.CliState.INSTALLED)
                 cliCommand = _cliCommand
             } else {
-                updateWidgetState(CodacyCliStatusBarWidget.State.ERROR)
+                updateWidgetState(CodacyCliStatusBarWidget.CliState.ERROR)
 
                 notificationManager
                     .createNotification(
@@ -209,15 +210,15 @@ class CodacyCli() {
         }
 
         if (autoInstall && !isCodacySettingsPresent()) {
-            updateWidgetState(CodacyCliStatusBarWidget.State.INSTALLING)
+            updateWidgetState(CodacyCliStatusBarWidget.CliState.INSTALLING)
             val initRes = initialize()
             if (initRes) {
-                updateWidgetState(CodacyCliStatusBarWidget.State.INITIALIZED)
+                updateWidgetState(CodacyCliStatusBarWidget.CliState.INITIALIZED)
             } else {
-                updateWidgetState(CodacyCliStatusBarWidget.State.ERROR)
+                updateWidgetState(CodacyCliStatusBarWidget.CliState.ERROR)
             }
         } else if (isCodacySettingsPresent()) {
-            updateWidgetState(CodacyCliStatusBarWidget.State.INITIALIZED)
+            updateWidgetState(CodacyCliStatusBarWidget.CliState.INITIALIZED)
         }
 
     }
@@ -394,10 +395,10 @@ class CodacyCli() {
 
         prepareCli(true)
 
-        updateWidgetState(CodacyCliStatusBarWidget.State.ANALYZING)
+        updateWidgetState(CodacyCliStatusBarWidget.CliState.ANALYZING)
 
         if (cliCommand.isBlank()) {
-            updateWidgetState(CodacyCliStatusBarWidget.State.INITIALIZED)
+            updateWidgetState(CodacyCliStatusBarWidget.CliState.INITIALIZED)
 
             notificationManager
                 .createNotification(
@@ -433,7 +434,7 @@ class CodacyCli() {
                             execResult.exceptionOrNull()?.message ?: "Unknown error",
                             NotificationType.ERROR
                         )
-                        updateWidgetState(CodacyCliStatusBarWidget.State.ERROR)
+                        updateWidgetState(CodacyCliStatusBarWidget.CliState.ERROR)
                     }
                 }
 
@@ -455,12 +456,12 @@ class CodacyCli() {
                     ?.let(::processSarifResults)
                     ?: emptyList()
 
-                updateWidgetState(CodacyCliStatusBarWidget.State.INITIALIZED)
+                updateWidgetState(CodacyCliStatusBarWidget.CliState.INITIALIZED)
             }
 
             return results
         } catch (error: Exception) {
-            updateWidgetState(CodacyCliStatusBarWidget.State.INITIALIZED)
+            updateWidgetState(CodacyCliStatusBarWidget.CliState.INITIALIZED)
             throw error
         }
     }
@@ -554,8 +555,8 @@ class CodacyCli() {
         this.codacyStatusBarWidget = widget
     }
 
-    fun updateWidgetState(state: CodacyCliStatusBarWidget.State) {
-        codacyStatusBarWidget?.updateStatus(state)
+    fun updateWidgetState(cliState: CodacyCliStatusBarWidget.CliState) {
+        codacyStatusBarWidget?.updateStatus(cliState)
     }
 
     fun isCodacyDirectoryPresent(): Boolean {

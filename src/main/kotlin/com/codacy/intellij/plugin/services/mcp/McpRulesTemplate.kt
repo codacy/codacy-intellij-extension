@@ -1,11 +1,10 @@
 package com.codacy.intellij.plugin.services.mcp
 
 import com.codacy.intellij.plugin.services.common.Config
-import com.codacy.intellij.plugin.services.mcp.model.*
-import com.google.gson.Gson
-import com.intellij.ide.plugins.PluginManagerCore
-import com.intellij.openapi.components.Service
-import com.intellij.openapi.extensions.PluginId
+import com.codacy.intellij.plugin.services.mcp.model.RepositoryParams
+import com.codacy.intellij.plugin.services.mcp.model.Rule
+import com.codacy.intellij.plugin.services.mcp.model.RuleConfig
+import com.codacy.intellij.plugin.services.mcp.model.RuleScope
 import com.intellij.openapi.project.Project
 import com.intellij.util.io.exists
 import java.io.File
@@ -14,101 +13,14 @@ import java.nio.file.Paths
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
-@Service
-class McpService {
+object McpRulesTemplate {
 
-    companion object {
-        val GITHUB_COPILOT_PLUGIN_ID = PluginId.getId("com.github.copilot") //TODO check
-        val JUNIE_PLUGIN_ID = PluginId.getId("com.codacy.intellij.plugin") //TODO path
-    }
-
-
-    //TODO this will be agnostic and use any agent
-    fun createConfiguration(aiAgent: AiAgent) {
-        val fullPath = aiAgent.configurationPath
-        val mcpConfigFullPath = aiAgent.configurationFilePath
-
-
-        if (!fullPath.exists()) {
-            File(fullPath.toString()).mkdirs()
-        }
-
-
-        val mcpJson = McpServer(
-            command = "npx",
-            args = listOf("-y", "@codacy/codacy-mcp"),
-            env = mapOf(
-                "CODACY_ACCOUNT_TOKEN" to "PUT TOKEN HERE", //TODO read from config
-            )
-        )
-
-        val gson = Gson()
-
-        //TODO some notification and maybe return value to indicate if it went well
-        if (mcpConfigFullPath.exists()) {
-            val mcpConfigFile = File(mcpConfigFullPath.toString())
-            val mcpConfigJson = mcpConfigFile.readText()
-
-            val mcpConfig = gson.fromJson(mcpConfigJson, McpConfig::class.java)
-            val updated = mcpConfig.copy(mcpServers = mcpConfig.mcpServers.plus("codacy" to mcpJson))
-
-            File(mcpConfigFullPath.toString()).writeText(gson.toJson(updated))
-        } else {
-            val mcpConfig = McpConfig(
-                mcpServers = mapOf("codacy" to mcpJson)
-            )
-            val mcpConfigJson = gson.toJson(mcpConfig)
-            File(mcpConfigFullPath.toString()).writeText(mcpConfigJson)
-        }
-    }
-
-
-    //TODO these params might be just part of the class later
-    fun createOrUpdateRules(project: Project, aiAgent: AiAgent, params: RepositoryParams?) {
-
-        //TODO this part is from vscode and it checks if user wants to generate rules
-//        const analyzeGeneratedCode = vscode.workspace.getConfiguration().get('codacy.guardrails.analyzeGeneratedCode')
-//        const generateRules = vscode.workspace.getConfiguration().get('codacy.guardrails.rulesFile')
-//
-//        if (generateRules === 'disabled') return
-
-        val newRules = newRulesTemplate(
-            project = project, //TODO get the current project
-            repositoryParams = params,
-            excludedScopes = listOf(RuleScope.GUARDRAILS) //TODO this should be configurable
-        )
-
-        val rulesPath = aiAgent.getAiAgentSuggestionFilePath(project)
-        val dirPath = rulesPath.parent
-
-        if (!dirPath.exists()) {
-            dirPath.toFile().mkdirs()
-        }
-
-
-        if (!rulesPath.exists()) {
-            rulesPath.writeText(
-                convertRulesToMarkdown(newRules)
-            )
-            //TODO force cast
-            addRulesToGitignore(project.basePath!!, rulesPath)
-        } else {
-            try {
-                val existingContent = rulesPath.readText()
-                rulesPath.writeText(convertRulesToMarkdown(newRules, existingContent))
-            } catch (e: Exception) {
-                //TODO in vscode there might be parsing error
-            }
-        }
-
-    }
-
-    //TODO try to remove project from the parameters
     fun newRulesTemplate(
         project: Project,
         repositoryParams: RepositoryParams?,
         excludedScopes: List<RuleScope>?
     ): RuleConfig {
+        val basePath = project.basePath ?: throw IllegalStateException("Project base path is null")
         val repositoryRules = mutableListOf<Rule>()
 
         if (repositoryParams != null) {
@@ -127,17 +39,14 @@ class McpService {
             )
         }
 
-
-        //TODO force cast
         val codacyCLISettingsPath = Paths.get(
-            project.basePath!!,
+            basePath,
             Config.CODACY_DIRECTORY_NAME,
             Config.CODACY_YAML_NAME
         )
 
         val enigmaRules = mutableListOf<Rule>()
 
-        //TODO this function exists in CLI service, maybe we can use it
         if (codacyCLISettingsPath.exists()) {
             val codacyCLISettingsFile = File(codacyCLISettingsPath.toString()).readText()
             if (codacyCLISettingsFile.contains("enigma")) {
@@ -276,10 +185,10 @@ class McpService {
             ),
         )
 
-        val allRulesFiltered = (repositoryRules + commonRules + enigmaRules)/*.filter {
+        val allRulesFiltered = (repositoryRules + commonRules + enigmaRules).filter {
             //TODO make sure this makes sense
             !(excludedScopes?.contains(it.scope) ?: false)
-        }*/
+        }
 
         return RuleConfig(
             name = "Codacy Rules",
@@ -289,7 +198,7 @@ class McpService {
 
     }
 
-    private fun convertRulesToMarkdown(rules: RuleConfig, existingContent: String? = null): String {
+    fun convertRulesToMarkdown(rules: RuleConfig, existingContent: String? = null): String {
         val newCodacyRules = buildString {
             append("\n# ${rules.name}\n${rules.description}\n\n")
             append(
@@ -314,12 +223,10 @@ class McpService {
         }
     }
 
-    private fun addRulesToGitignore(projectPath: String, rulesPath: Path) {
-        val currentIDE = "IntelliJ"
-        //val workspacePath = //rulesPath.parent.toString()
+    fun addRulesToGitignore(projectPath: String, rulesPath: Path) {
         val gitignorePath = Paths.get(projectPath, ".gitignore")
-        val relativeRulesPath = rulesPath.toAbsolutePath().toString().removePrefix(projectPath+ File.separator)
-        val gitignoreContent = "\n\n# Ignore $currentIDE AI rules\n$relativeRulesPath\n"
+        val relativeRulesPath = rulesPath.toAbsolutePath().toString().removePrefix(projectPath + File.separator)
+        val gitignoreContent = "\n\n# Ignore IntelliJ AI rules\n$relativeRulesPath\n"
         var existingGitignore: String
         if (gitignorePath.exists()) {
             existingGitignore = gitignorePath.readText()
@@ -331,21 +238,4 @@ class McpService {
             gitignorePath.writeText(gitignoreContent)
         }
     }
-
-    private fun checkForNode(): Boolean =
-        ProcessBuilder("node", "--version")
-            .start()
-            .waitFor() == 0
-
-
-    private fun getPresentAiAgents(): List<AiAgent> {
-        return listOf(
-            JUNIE_PLUGIN_ID to AiAgent.JUNIE,
-            GITHUB_COPILOT_PLUGIN_ID to AiAgent.GITHUB_COPILOT
-        ).mapNotNull { (id, agent) ->
-            if (PluginManagerCore.getPlugin(id) != null) agent else null
-        }
-    }
-
-
 }
