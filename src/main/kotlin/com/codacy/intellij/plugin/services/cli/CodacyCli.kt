@@ -411,7 +411,7 @@ class CodacyCli() {
         try {
             var results: List<ProcessedSarifResult> = emptyList()
 
-            withTempFile { tempFile, tempFilePath ->
+            withTempFile { _, tempFilePath ->
 
                 val command = buildString {
                     append(cliCommand)
@@ -437,9 +437,20 @@ class CodacyCli() {
                     }
                 }
 
-                val fileOutput = File(tempFilePath.toUri()).readText()
+                val fileOutput = runCatching {
+                    File(tempFilePath.toUri()).readText()
+                }
 
-                results = fileOutput
+                if (fileOutput.isFailure) {
+                    notificationManager.createNotification(
+                        "CLI tools has not generated a result file",
+                        "Current document will not be analyzed, please try again",
+                        NotificationType.ERROR
+                    ).notify(project)
+                    return@withTempFile
+                }
+
+                results = fileOutput.getOrNull()
                     .let { SarifUtil.readReport(StringReader(it)).runs }
                     ?.let(::processSarifResults)
                     ?: emptyList()
