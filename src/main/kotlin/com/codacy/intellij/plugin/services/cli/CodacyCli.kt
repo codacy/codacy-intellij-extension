@@ -16,6 +16,8 @@ import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_TOOLS_
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_YAML_NAME
 import com.codacy.intellij.plugin.services.common.GitRemoteParser
 import com.codacy.intellij.plugin.services.git.GitProvider
+import com.codacy.intellij.plugin.telemetry.CliInstallEvent
+import com.codacy.intellij.plugin.telemetry.Telemetry
 import com.codacy.intellij.plugin.views.CodacyCliStatusBarWidget
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
@@ -35,9 +37,6 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.*
 import kotlin.io.path.isDirectory
-
-import com.codacy.intellij.plugin.telemetry.CliInstallEvent
-import com.codacy.intellij.plugin.telemetry.Telemetry
 
 @Service
 class CodacyCli() {
@@ -83,7 +82,7 @@ class CodacyCli() {
             isServiceInstantiated = true
         }
 
-        if(widget != null) {
+        if (widget != null) {
             registerWidget(widget)
         }
 
@@ -131,6 +130,10 @@ class CodacyCli() {
 
             val cliBehaviour = when {
                 systemOs == "mac os x" || systemOs.contains("darwin") -> {
+                    UnixBehaviour()
+                }
+
+                systemOs == "linux" -> {
                     UnixBehaviour()
                 }
 

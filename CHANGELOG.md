@@ -6,4 +6,5 @@
 
 ### Added
 
-- Added support to 2025.* versions of JetBrains IDEs.
+- Added support for local scanning using Codacy's cli v2
+- Support new versions of the IDEA products
