@@ -6,6 +6,7 @@ import com.intellij.credentialStore.CredentialAttributes
 import com.intellij.credentialStore.Credentials
 import com.intellij.ide.passwordSafe.PasswordSafe
 import com.intellij.openapi.components.*
+import com.intellij.util.SlowOperations
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -55,7 +56,6 @@ class Config : PersistentStateComponent<Config.State> {
 
     override fun loadState(state: State) {
         this.state = state
-        this.apiToken = loadApiToken()
         log.info("Configuration loaded")
     }
 
@@ -64,9 +64,14 @@ class Config : PersistentStateComponent<Config.State> {
     }
 
     private fun loadApiToken(): String? {
-        val credentialAttributes = createCredentialAttributes()
-        val credentials = PasswordSafe.instance.get(credentialAttributes)
-        return credentials?.getPasswordAsString()
+        val accessToken = SlowOperations.allowSlowOperations("Codacy: loadApiToken")
+        return try {
+            val credentialAttributes = createCredentialAttributes()
+            val credentials = PasswordSafe.instance.get(credentialAttributes)
+            credentials?.getPasswordAsString()
+        } finally {
+            accessToken.finish()
+        }
     }
 
     @OptIn(DelicateCoroutinesApi::class)
