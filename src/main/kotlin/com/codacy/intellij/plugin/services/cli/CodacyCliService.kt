@@ -169,6 +169,9 @@ class CodacyCliService() {
                 systemOs == "mac os x" || systemOs.contains("darwin") -> {
                     UnixBehaviour()
                 }
+                systemOs == "linux" -> {
+                    UnixBehaviour()
+                }
 
                 systemOs == "linux" -> {
                     UnixBehaviour()
