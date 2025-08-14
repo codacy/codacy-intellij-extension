@@ -99,7 +99,7 @@ class CodacyCli() {
     }
 
     companion object {
-        fun getService(project: Project, widget: CodacyCliStatusBarWidget? = null): CodacyCli {
+        fun getService(project: Project): CodacyCli {
             val gitProvider = GitProvider.getRepository(project)
                 ?: throw IllegalStateException("No Git provider found for the project")
 
@@ -113,7 +113,7 @@ class CodacyCli() {
                 gitInfo.organization,
                 gitInfo.repository,
                 project,
-                widget
+                null
             )
         }
 
