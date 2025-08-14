@@ -17,7 +17,7 @@ import java.nio.file.Paths
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.readText
 
-sealed class AiAgent() {
+sealed class AiAgent {
 
     abstract val pluginId: String
 

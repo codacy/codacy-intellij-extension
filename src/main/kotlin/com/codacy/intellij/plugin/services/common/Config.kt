@@ -50,7 +50,8 @@ class Config : PersistentStateComponent<Config.State> {
         var anonymousId: String = UUID.randomUUID().toString(),
         var userId: Int? = null,
         var isFirstRun: Boolean = true,
-        var generateGuidelines: Boolean = false
+        var allowGenerateGuidelines: Boolean = false,
+        var addAnalysisGuidelines: Boolean = false
     )
 
     override fun getState(): State = state
@@ -111,7 +112,11 @@ class Config : PersistentStateComponent<Config.State> {
     val loginUri: String = "https://app.codacy.com/auth/intellij"
 
     val storedApiToken: String?
-        get() = apiToken
+        get() {
+            return if(apiToken.isNullOrBlank()) {
+                loadApiToken()
+            } else apiToken
+        }
 
     private fun createCredentialAttributes(): CredentialAttributes =
         CredentialAttributes("Codacy", "")

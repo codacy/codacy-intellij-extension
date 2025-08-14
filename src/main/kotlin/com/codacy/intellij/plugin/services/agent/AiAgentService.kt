@@ -2,15 +2,7 @@ package com.codacy.intellij.plugin.services.agent
 
 import com.codacy.intellij.plugin.listeners.ServiceState
 import com.codacy.intellij.plugin.listeners.WidgetStateListener
-import com.codacy.intellij.plugin.services.agent.model.McpConfig
-import com.codacy.intellij.plugin.services.agent.model.McpConfigGithubCopilot
-import com.codacy.intellij.plugin.services.agent.model.McpConfigJunie
-import com.codacy.intellij.plugin.services.agent.model.McpServer
-import com.codacy.intellij.plugin.services.agent.model.McpServerGithubCopilot
-import com.codacy.intellij.plugin.services.agent.model.McpServerJunie
-import com.codacy.intellij.plugin.services.agent.model.Provider
-import com.codacy.intellij.plugin.services.agent.model.RepositoryParams
-import com.codacy.intellij.plugin.services.agent.model.RuleScope
+import com.codacy.intellij.plugin.services.agent.model.*
 import com.codacy.intellij.plugin.services.common.Config
 import com.codacy.intellij.plugin.services.common.GitRemoteParser
 import com.codacy.intellij.plugin.services.git.GitProvider
@@ -26,7 +18,7 @@ import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
 @Service
-class AiAgentService() {
+class AiAgentService {
 
     sealed interface AiAgentState {
         object NOT_INSTALLED : AiAgentState
@@ -77,7 +69,13 @@ class AiAgentService() {
                 Paths.get(System.getProperty("user.home") ?: throw RuntimeException("Failed to get user home")),
             )
 
-            service.initService(Provider.fromString(gitInfo.provider), gitInfo.organization, gitInfo.repository, project, aiAgent)
+            service.initService(
+                Provider.fromString(gitInfo.provider),
+                gitInfo.organization,
+                gitInfo.repository,
+                project,
+                aiAgent
+            )
 
             return service
         }
@@ -155,6 +153,11 @@ class AiAgentService() {
                 val newConfig = buildConfig(mapOf("codacy" to server))
                 file.writeText(gson.toJson(newConfig))
             }
+
+            notificationGroup.createNotification(
+                "MCP configuration installed successfully",
+                NotificationType.INFORMATION,
+            ).notify(project)
             mcpAiAgentState = AiAgentState.INSTALLED
         }
 
@@ -193,7 +196,7 @@ class AiAgentService() {
     }
 
     fun installGuidelines(project: Project, params: RepositoryParams?) {
-        if (!Config.instance.state.generateGuidelines) {
+        if (!Config.instance.state.allowGenerateGuidelines) {
             notificationGroup.createNotification(
                 "Guidelines won't be installed",
                 "Plugin settings have guidelines disabled, if you want to enable this, please check plugin settings",
@@ -204,10 +207,14 @@ class AiAgentService() {
 
         val basePath = project.basePath ?: throw RuntimeException("Project base path is null")
 
+        val excludedScopes = listOfNotNull(
+            RuleScope.GUARDRAILS.takeUnless { Config.instance.state.addAnalysisGuidelines }
+        )
+
         val newRules = McpRulesTemplate.newRulesTemplate(
             project = project,
             repositoryParams = params,
-            excludedScopes = listOf(RuleScope.GUARDRAILS)
+            excludedScopes = excludedScopes
         )
 
         val rulesPath = aiAgent.guidelinesFilePath
@@ -223,6 +230,12 @@ class AiAgentService() {
                 McpRulesTemplate.convertRulesToMarkdown(newRules)
             )
             McpRulesTemplate.addRulesToGitignore(basePath, rulesPath)
+
+            notificationGroup.createNotification(
+                "Guidelines installed successfully",
+                NotificationType.INFORMATION,
+            ).notify(project)
+
             guidelinesAiAgentState = AiAgentState.INSTALLED
         } else {
             try {
@@ -230,6 +243,12 @@ class AiAgentService() {
                 rulesPath.writeText(
                     McpRulesTemplate.convertRulesToMarkdown(newRules, existingContent)
                 )
+
+                notificationGroup.createNotification(
+                    "Guidelines installed successfully",
+                    NotificationType.INFORMATION,
+                ).notify(project)
+
                 guidelinesAiAgentState = AiAgentState.INSTALLED
             } catch (e: Exception) {
                 guidelinesAiAgentState = AiAgentState.NOT_INSTALLED
