@@ -173,10 +173,6 @@ class CodacyCliService() {
                     UnixBehaviour()
                 }
 
-                systemOs == "linux" -> {
-                    UnixBehaviour()
-                }
-
                 systemOs.contains("windows") -> {
                     val process = ProcessBuilder("wsl", "--status")
                         .redirectErrorStream(true)

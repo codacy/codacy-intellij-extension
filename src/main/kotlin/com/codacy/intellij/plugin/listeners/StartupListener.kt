@@ -42,27 +42,29 @@ class StartupListener : StartupActivity {
         // Preload the codacy icon
         IconUtils.CodacyIcon
 
-        val gitRepository = GitProvider.getRepository(project)
-        val repositoryManager = project.service<RepositoryManager>()
-        if (gitRepository != null && repositoryManager.currentRepository != gitRepository)
-            GlobalScope.launch { repositoryManager.open(gitRepository) }
-
-        val remote = gitRepository?.remotes?.firstOrNull()
-            ?: throw IllegalStateException("No remote found in the Git repository")
-
-        val gitInfo = GitRemoteParser.parseGitRemote(remote.firstUrl!!)
-
-
-        GlobalScope.launch {
-            Api().listTools()
-        }
-
         // Plugin listeners
         val connection = project.messageBus.connect()
 
         connection.subscribe(DynamicPluginListener.TOPIC, PluginStateListener())
 
         connection.subscribe(GitRepository.GIT_REPO_CHANGE, GitRepositoryChangeListener { repository ->
+
+
+            val gitResult = initializeGit(project)
+            val repositoryManager = gitResult.first
+            val gitInfo = gitResult.second
+
+            CodacyCliService.getService(
+                Provider.fromString(gitInfo.provider), gitInfo.organization, gitInfo.repository, project,
+            )
+
+            AiAgentService.getService(project)
+
+
+            GlobalScope.launch {
+                Api().listTools()
+            }
+
             if (repository.currentBranch != null) {
                 CoroutineScope(Dispatchers.Default).launch {
                     repositoryManager.handleStateChange()
@@ -92,13 +94,21 @@ class StartupListener : StartupActivity {
                 handle(events)
             }
         })
+    }
 
+    @OptIn(DelicateCoroutinesApi::class)
+    private fun initializeGit(project: Project): Pair<RepositoryManager, GitRemoteParser.GitRemoteInfo> {
+        val gitRepository = GitProvider.getRepository(project)
+        val repositoryManager = project.service<RepositoryManager>()
+        if (gitRepository != null && repositoryManager.currentRepository != gitRepository)
+            GlobalScope.launch { repositoryManager.open(gitRepository) }
 
-        CodacyCliService.getService(
-            Provider.fromString(gitInfo.provider), gitInfo.organization, gitInfo.repository, project,
-        )
+        val remote = gitRepository?.remotes?.firstOrNull()
+            ?: throw IllegalStateException("No remote found in the Git repository")
 
-        AiAgentService.getService(project)
+        val gitInfo = GitRemoteParser.parseGitRemote(remote.firstUrl!!)
+
+        return Pair(repositoryManager, gitInfo)
     }
 
     //Re-triggering services helps with keeping the state of the plugin consistent

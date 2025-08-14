@@ -12,6 +12,11 @@ class ConfigWindowForm {
     private val availableCliVersionsDropdownMenu = ComboBox<String>()
     private val generateGuidelinesCheckbox = JCheckBox("Generate Guidelines")
 
+    //TODO: This checkbox might be a little ambiguous, it doesn't just let agent run codacy-cli,
+    // but rather when generating instructions/guidelines for the AI agent it will include guardrails instructions,
+    // which in turn will run codacy-cli when needed
+    private val analyzeGeneratedCodeCheckbox = JCheckBox("Let Agent Analyze Generated Code")
+
     val component: JComponent get() = panel
 
     init {
@@ -22,6 +27,9 @@ class ConfigWindowForm {
                 }
                 row {
                     cell(generateGuidelinesCheckbox)
+                }
+                row {
+                    cell(analyzeGeneratedCodeCheckbox)
                 }
             }
         )
@@ -51,5 +59,13 @@ class ConfigWindowForm {
 
     fun getGenerateGuidelines(): Boolean {
         return generateGuidelinesCheckbox.isSelected
+    }
+
+    fun setAnalyzeGeneratedCode(value: Boolean) {
+        analyzeGeneratedCodeCheckbox.isSelected = value
+    }
+
+    fun getAnalyzeGeneratedCode(): Boolean {
+        return analyzeGeneratedCodeCheckbox.isSelected
     }
 }
