@@ -131,6 +131,7 @@ class CodacyPullRequestSummaryToolWindowFactory : ToolWindowFactory {
                 updateToolWindowContent(project, toolWindow)
             }
         }
+
         buttonsPanel.add(initConfigButton, BorderLayout.NORTH)
         panel.add(buttonsPanel, BorderLayout.NORTH)
 

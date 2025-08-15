@@ -15,6 +15,9 @@ class ConfigConfigurable : SearchableConfigurable {
     override fun createComponent(): JComponent? {
         form = ConfigWindowForm()
         fetchAllAvailableCliVersions()
+        // Initialize checkboxes with current state
+        form?.setGenerateGuidelines(config.state.allowGenerateGuidelines)
+        form?.setAnalyzeGeneratedCode(config.state.addAnalysisGuidelines)
         return form?.component
     }
 
@@ -36,17 +39,26 @@ class ConfigConfigurable : SearchableConfigurable {
 
     override fun isModified(): Boolean {
         val state = Config.instance.state
-        return form?.getSelectedAvailableCliVersion() != state.selectedCliVersion
+        val versionChanged = form?.getSelectedAvailableCliVersion() != state.selectedCliVersion
+        val generateGuidelinesChanged = (form?.getGenerateGuidelines() ?: false) != state.allowGenerateGuidelines
+        val analyzeGeneratedCodeChanged = (form?.getAnalyzeGeneratedCode() ?: false) != state.addAnalysisGuidelines
+        return versionChanged || generateGuidelinesChanged || analyzeGeneratedCodeChanged
     }
 
     override fun apply() {
         val state = Config.instance.state
         state.selectedCliVersion = form?.getSelectedAvailableCliVersion() ?: ""
+        state.allowGenerateGuidelines = form?.getGenerateGuidelines() ?: false
+        state.addAnalysisGuidelines = form?.getAnalyzeGeneratedCode() ?: false
+        // Ensure settings are persisted immediately
+        ApplicationManager.getApplication().saveSettings()
     }
 
     override fun reset() {
         val state = Config.instance.state
         form?.setAvailableCliVersionsDropdown(state.availableCliVersions, state.selectedCliVersion)
+        form?.setGenerateGuidelines(state.allowGenerateGuidelines)
+        form?.setAnalyzeGeneratedCode(state.addAnalysisGuidelines)
     }
 
     override fun getDisplayName(): String = "Codacy Plugin Settings"

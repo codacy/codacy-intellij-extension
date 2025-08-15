@@ -1,6 +1,6 @@
 package com.codacy.intellij.plugin.views
 
-import com.codacy.intellij.plugin.services.cli.CodacyCli
+import com.codacy.intellij.plugin.services.cli.CodacyCliService
 import com.codacy.intellij.plugin.services.cli.FileContentInfo
 import com.codacy.intellij.plugin.services.cli.models.ProcessedSarifResult
 import com.intellij.lang.annotation.AnnotationHolder
@@ -24,7 +24,13 @@ class SarifExternalAnnotator : ExternalAnnotator<FileContentInfo, List<Processed
         private val logger = Logger.getInstance(SarifExternalAnnotator::class.java)
     }
 
+
     override fun collectInformation(file: PsiFile): FileContentInfo? {
+        val cliService = CodacyCliService.getService(file.project)
+        if (cliService.codacyCliState != CodacyCliService.CodacyCliState.INITIALIZED) {
+            return null
+        }
+
         val document = PsiDocumentManager.getInstance(file.project).getDocument(file) ?: return null
         val textHash = document.text.hashCode()
         logger.info("Collecting information for file: ${file.virtualFile.path}, hash: $textHash")
@@ -48,7 +54,7 @@ class SarifExternalAnnotator : ExternalAnnotator<FileContentInfo, List<Processed
         try {
             logger.info("Running analysis for file: ${collectedInfo.file.virtualFile.path}, hash: $hash")
             val file = collectedInfo.file
-            val cli = CodacyCli.getService(file.project)
+            val cli = CodacyCliService.getService(file.project)
             val result = runBlocking {
                 cli.analyze(file.virtualFile.path, null)
             }
