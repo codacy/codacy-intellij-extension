@@ -66,6 +66,7 @@ class CodacyInspection : LocalInspectionTool() {
                 description,
                 when (issue.commitIssue.patternInfo.severityLevel) {
                     "Error" -> ProblemHighlightType.ERROR
+                    "High" -> ProblemHighlightType.GENERIC_ERROR
                     "Warning" -> ProblemHighlightType.WARNING
                     "Info" -> ProblemHighlightType.WEAK_WARNING
                     else -> ProblemHighlightType.ERROR
