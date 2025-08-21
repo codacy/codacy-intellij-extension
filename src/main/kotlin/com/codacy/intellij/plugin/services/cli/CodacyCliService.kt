@@ -174,25 +174,23 @@ class CodacyCliService() {
                 }
 
                 systemOs.contains("windows") -> {
-                    val process = ProcessBuilder("wsl", "--status")
+                    val process = ProcessBuilder("wsl", "--list", "--quiet")
                         .redirectErrorStream(true)
                         .start()
 
-                    process.waitFor()
-
-                    val processOutput = process.inputStream.bufferedReader().readText()
-                    val isWSLSupported = processOutput.contains("Default Distribution")
-
-                    if (isWSLSupported) {
+                    val exitCode = process.waitFor()
+                    if (exitCode == 0) {
                         WindowsCliBehaviour()
                     } else {
+                        val output = process.inputStream.bufferedReader().readText()
                         notificationGroup.createNotification(
-                            "Window Subsystem for Linux detection failure",
-                            "WSL not present on this machine. WSL checker output: $processOutput",
+                            "Windows Subsystem for Linux detection failure",
+                            "WSL not present on this machine. Command output: $output",
                             NotificationType.WARNING
                         ).notify(project)
                         WindowsCliBehaviour()
                     }
+
                 }
 
                 else -> {
