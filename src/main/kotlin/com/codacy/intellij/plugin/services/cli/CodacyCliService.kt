@@ -180,15 +180,15 @@ class CodacyCliService() {
 
                     process.waitFor()
 
-                    val isWSLSupported =
-                        process.inputStream.bufferedReader().readText().contains("Default Distribution")
+                    val processOutput = process.inputStream.bufferedReader().readText()
+                    val isWSLSupported = processOutput.contains("Default Distribution")
 
                     if (isWSLSupported) {
                         WindowsCliBehaviour()
                     } else {
                         notificationGroup.createNotification(
                             "Window Subsystem for Linux detection failure",
-                            "WSL not present on this machine.",
+                            "WSL not present on this machine. WSL checker output: $processOutput",
                             NotificationType.WARNING
                         ).notify(project)
                         WindowsCliBehaviour()
