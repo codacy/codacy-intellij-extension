@@ -4,3 +4,7 @@
 .log
 build
 .codacy
+
+
+# Ignore IntelliJ AI rules
+.junie/guidelines.md
