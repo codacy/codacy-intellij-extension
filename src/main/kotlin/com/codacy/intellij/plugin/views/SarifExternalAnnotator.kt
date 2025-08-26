@@ -14,7 +14,6 @@ import com.intellij.psi.PsiFile
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.ConcurrentHashMap
 
-
 private val resultCache = ConcurrentHashMap<Int, List<ProcessedSarifResult>?>()
 private val runningHashes = ConcurrentHashMap.newKeySet<Int>()
 
@@ -23,7 +22,6 @@ class SarifExternalAnnotator : ExternalAnnotator<FileContentInfo, List<Processed
     companion object {
         private val logger = Logger.getInstance(SarifExternalAnnotator::class.java)
     }
-
 
     override fun collectInformation(file: PsiFile): FileContentInfo? {
         val cliService = CodacyCliService.getService(file.project)
@@ -133,6 +131,4 @@ class SarifExternalAnnotator : ExternalAnnotator<FileContentInfo, List<Processed
             return TextRange.EMPTY_RANGE
         }
     }
-
-
 }

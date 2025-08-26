@@ -94,7 +94,6 @@ sealed class AiAgent {
                 Files.isRegularFile(guidelinesFilePath) &&
                 runCatching { Files.size(guidelinesFilePath) }.getOrDefault(0L) > 0L
 
-
     class JUNIE(override val projectPath: Path, override val homePath: Path) : AiAgent() {
         override val pluginId: String = "org.jetbrains.junie"
 
