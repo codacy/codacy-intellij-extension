@@ -54,12 +54,11 @@ class StartupListener : StartupActivity {
             val repositoryManager = gitResult.first
             val gitInfo = gitResult.second
 
-            val cli = CodacyCliService.getService(
+            CodacyCliService.getService(
                 Provider.fromString(gitInfo.provider), gitInfo.organization, gitInfo.repository, project,
             )
 
             AiAgentService.getService(project)
-
 
             GlobalScope.launch {
                 Api().listTools()
@@ -111,7 +110,7 @@ class StartupListener : StartupActivity {
         return Pair(repositoryManager, gitInfo)
     }
 
-    //Re-triggering services helps with keeping the state of the plugin consistent
+    // Re-triggering services helps with keeping the state of the plugin consistent
     // E.g. if the user deletes CLI.sh, re-initialization of the project will check for the
     // presence of the CLI and mark its state as not-installed
     private fun onProjectFileSystemChange(project: Project, events: List<VFileEvent>) {
