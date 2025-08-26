@@ -3,8 +3,8 @@ package com.codacy.intellij.plugin.services.cli
 import com.codacy.intellij.plugin.listeners.ServiceState
 import com.codacy.intellij.plugin.listeners.WidgetStateListener
 import com.codacy.intellij.plugin.services.agent.model.Provider
-import com.codacy.intellij.plugin.services.cli.behaviour.UnixBehaviour
-import com.codacy.intellij.plugin.services.cli.behaviour.WindowsCliBehaviour
+import com.codacy.intellij.plugin.services.cli.behaviour.CliUnix
+import com.codacy.intellij.plugin.services.cli.behaviour.CliWindows
 import com.codacy.intellij.plugin.services.cli.models.ProcessedSarifResult
 import com.codacy.intellij.plugin.services.cli.models.Region
 import com.codacy.intellij.plugin.services.cli.models.RuleInfo
@@ -20,6 +20,9 @@ import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_YAML_N
 import com.codacy.intellij.plugin.services.common.GitRemoteParser
 import com.codacy.intellij.plugin.services.common.IconUtils
 import com.codacy.intellij.plugin.services.git.GitProvider
+import com.codacy.intellij.plugin.services.paths.PathsBehaviour
+import com.codacy.intellij.plugin.services.paths.behaviour.PathsUnix
+import com.codacy.intellij.plugin.services.paths.behaviour.PathsWindows
 import com.codacy.intellij.plugin.telemetry.CliInstallEvent
 import com.codacy.intellij.plugin.telemetry.Telemetry
 import com.intellij.icons.AllIcons
@@ -86,7 +89,9 @@ class CodacyCliService() {
     lateinit var repository: String
     lateinit var project: Project
     lateinit var rootPath: String
+
     private lateinit var cliBehaviour: CodacyCliBehaviour
+    private lateinit var pathsBehaviour: PathsBehaviour
 
     private var isServiceInstantiated: Boolean = false
 
@@ -109,6 +114,7 @@ class CodacyCliService() {
         repository: String,
         project: Project,
         cliBehaviour: CodacyCliBehaviour,
+        pathsBehaviour: PathsBehaviour,
     ) {
         //TODO this logic might need to be changed to accommodate
         // provider/org/repo changing
@@ -118,7 +124,8 @@ class CodacyCliService() {
             this.repository = repository
             this.project = project
             this.cliBehaviour = cliBehaviour
-            this.rootPath = cliBehaviour.rootPath(project)
+            this.pathsBehaviour = pathsBehaviour
+            this.rootPath = pathsBehaviour.rootPath(project)
 
             setServiceState(ServiceState.RUNNING)
 
@@ -165,34 +172,31 @@ class CodacyCliService() {
             val systemOs = System.getProperty("os.name").lowercase()
             val cli = project.getService(CodacyCliService::class.java)
 
-            val cliBehaviour = when {
+            val (cliBehaviour, pathsBehaviour) = when {
                 systemOs == "mac os x" || systemOs.contains("darwin") -> {
-                    UnixBehaviour()
+                    CliUnix() to PathsUnix()
                 }
+
                 systemOs == "linux" -> {
-                    UnixBehaviour()
+                    CliUnix() to PathsUnix()
                 }
 
                 systemOs.contains("windows") -> {
-                    val process = ProcessBuilder("wsl", "--status")
+                    val process = ProcessBuilder("wsl", "--list", "--quiet")
                         .redirectErrorStream(true)
                         .start()
 
-                    process.waitFor()
-
-                    val isWSLSupported =
-                        process.inputStream.bufferedReader().readText().contains("Default Distribution")
-
-                    if (isWSLSupported) {
-                        WindowsCliBehaviour()
-                    } else {
+                    val exitCode = process.waitFor()
+                    if (exitCode != 0) {
+                        val output = process.inputStream.bufferedReader().readText()
                         notificationGroup.createNotification(
-                            "Window Subsystem for Linux detection failure",
-                            "WSL not present on this machine.",
+                            "Windows Subsystem for Linux detection failure",
+                            "WSL not present on this machine. Command output: $output",
                             NotificationType.WARNING
                         ).notify(project)
-                        WindowsCliBehaviour()
                     }
+
+                    CliWindows() to PathsWindows()
                 }
 
                 else -> {
@@ -200,7 +204,14 @@ class CodacyCliService() {
                 }
             }
 
-            cli.initService(provider, organization, repository, project, cliBehaviour)
+            cli.initService(
+                provider = provider,
+                organization = organization,
+                repository = repository,
+                project = project,
+                cliBehaviour = cliBehaviour,
+                pathsBehaviour = pathsBehaviour
+            )
 
             return cli
         }
@@ -281,16 +292,19 @@ class CodacyCliService() {
                 return null
             } else {
                 Telemetry.track(CliInstallEvent)
-                return cliBehaviour.toCliPath(codacyCliPath.toString())
+                return pathsBehaviour.toCliPath(codacyCliPath.toString())
             }
         } else {
-            return cliBehaviour.toCliPath(codacyCliPath.toString())
+            return pathsBehaviour.toCliPath(codacyCliPath.toString())
         }
     }
 
     fun installDependencies(): Boolean {
 
-        val program = cliBehaviour.buildCommand(cliBehaviour.toCliPath(cliCommand), "install").redirectErrorStream(true)
+        val program = cliBehaviour
+            .buildCommand(pathsBehaviour.toCliPath(cliCommand), "install")
+            .redirectErrorStream(true)
+
         program.environment()[CODACY_CLI_V2_VERSION_ENV_NAME] = config.cliVersion
 
         val exitCode = program
@@ -318,7 +332,7 @@ class CodacyCliService() {
         val fullPath = Paths.get(rootPath, CODACY_DIRECTORY_NAME, CODACY_CLI_SHELL_NAME).toAbsolutePath()
 
         return if (isCliShellFilePresent()) {
-            cliBehaviour.toCliPath(fullPath.toString())
+            pathsBehaviour.toCliPath(fullPath.toString())
         } else null
     }
 
@@ -397,7 +411,7 @@ class CodacyCliService() {
     }
 
     private fun downloadCodacyCli(outputPath: String): Int {
-        val process = cliBehaviour.downloadCliCommand()
+        val process = cliBehaviour.buildCommand("curl", "-Ls", Config.CODACY_CLI_DOWNLOAD_LINK)
             .redirectErrorStream(true)
             .start()
 
@@ -408,10 +422,10 @@ class CodacyCliService() {
             return exitCode
         }
 
-        val outputFile = Paths.get(cliBehaviour.fromCliPath(outputPath))
+        val outputFile = Paths.get(pathsBehaviour.fromCliPath(outputPath))
         outputFile.toFile().writeText(output)
 
-        return cliBehaviour.chmodCommand(outputFile)
+        return cliBehaviour.buildCommand("chmod", "+x", outputFile.toAbsolutePath().toString())
             .redirectErrorStream(true)
             .start()
             .waitFor()
@@ -443,9 +457,9 @@ class CodacyCliService() {
                     append(cliCommand)
                     append(" analyze ")
                     append(" --output ")
-                    append(cliBehaviour.toCliPath(tempFilePath.toString()))
+                    append(pathsBehaviour.toCliPath(tempFilePath.toString()))
                     append(" ")
-                    if (file != null) append(cliBehaviour.toCliPath(file)).append(" ")
+                    if (file != null) append(pathsBehaviour.toCliPath(file)).append(" ")
                     append("--format sarif")
                 }
 

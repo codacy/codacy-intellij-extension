@@ -6,6 +6,7 @@ import com.codacy.intellij.plugin.services.agent.model.*
 import com.codacy.intellij.plugin.services.common.Config
 import com.codacy.intellij.plugin.services.common.GitRemoteParser
 import com.codacy.intellij.plugin.services.git.GitProvider
+import com.codacy.intellij.plugin.services.paths.PathsBehaviour
 import com.google.gson.Gson
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.components.Service
@@ -38,6 +39,8 @@ class AiAgentService {
     lateinit var aiAgent: AiAgent
     lateinit var project: Project
 
+    lateinit var pathsBehaviour: PathsBehaviour
+
     lateinit var provider: Provider
     lateinit var organization: String
     lateinit var repository: String
@@ -60,13 +63,19 @@ class AiAgentService {
 
             val gitInfo = GitRemoteParser.parseGitRemote(remote.firstUrl!!)
 
+            val pathsBehaviour = PathsBehaviour.Factory.build()
+
             val service = project.getService(AiAgentService::class.java)
 
-            //NOTE: Hardcoded as we currently only support Junie
+            // NOTE: Hardcoded as we currently only support Junie
             // Later we can detect installed plugins with the helper functions and prompt user which to use
             val aiAgent = AiAgent.JUNIE(
-                Paths.get(project.basePath ?: throw RuntimeException("Failed to get project's base path")),
-                Paths.get(System.getProperty("user.home") ?: throw RuntimeException("Failed to get user home")),
+                Paths.get(pathsBehaviour.rootPath(project)),
+                Paths.get(
+                    pathsBehaviour.toCliPath(
+                        System.getProperty("user.home") ?: throw RuntimeException("Failed to get user home")
+                    )
+                ),
             )
 
             service.initService(
@@ -74,7 +83,8 @@ class AiAgentService {
                 gitInfo.organization,
                 gitInfo.repository,
                 project,
-                aiAgent
+                aiAgent,
+                pathsBehaviour
             )
 
             return service
@@ -87,7 +97,8 @@ class AiAgentService {
         organization: String,
         repository: String,
         project: Project,
-        aiAgent: AiAgent
+        aiAgent: AiAgent,
+        pathsBehaviour: PathsBehaviour
     ) {
 
         if (!this.isServiceInstantiated) {
@@ -95,9 +106,8 @@ class AiAgentService {
             this.organization = organization
             this.repository = repository
             this.project = project
-            this.rootPath = project.basePath!!//TODO, include WSL behaviour, this is also force cast
+            this.rootPath = pathsBehaviour.rootPath(project)
             this.aiAgent = aiAgent
-
 
             setServiceState(ServiceState.RUNNING)
 
@@ -268,9 +278,4 @@ class AiAgentService {
                 .stateChanged(serviceState)
         }
     }
-
-    private fun isNodePresent(): Boolean =
-        ProcessBuilder("node", "--version")
-            .start()
-            .waitFor() == 0
 }

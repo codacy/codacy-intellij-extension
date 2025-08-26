@@ -1,11 +1,10 @@
-package com.codacy.intellij.plugin.services.cli.behaviour
+package com.codacy.intellij.plugin.services.paths.behaviour
 
-import com.codacy.intellij.plugin.services.cli.CodacyCliBehaviour
-import com.codacy.intellij.plugin.services.common.Config
+import com.codacy.intellij.plugin.services.paths.PathsBehaviour
 import com.intellij.openapi.project.Project
-import java.nio.file.Path
+import kotlin.text.startsWith
 
-class WindowsCliBehaviour : CodacyCliBehaviour {
+class PathsWindows : PathsBehaviour {
 
     override fun rootPath(project: Project): String {
         val basePath = project.basePath
@@ -29,16 +28,4 @@ class WindowsCliBehaviour : CodacyCliBehaviour {
         path.replace(Regex("^/mnt/([a-zA-Z])"), "$1:")
             .replace("/", "\\")
             .replaceFirstChar { it.uppercaseChar() }
-
-    override fun downloadCliCommand(): ProcessBuilder {
-        return ProcessBuilder("wsl", "curl", "-Ls", Config.CODACY_CLI_DOWNLOAD_LINK)
-    }
-
-    override fun chmodCommand(outputPath: Path): ProcessBuilder {
-        return ProcessBuilder("wsl", "chmod", "+x", outputPath.toAbsolutePath().toString())
-    }
-
-    override fun buildCommand(vararg commandParts: String): ProcessBuilder {
-        return ProcessBuilder("wsl", *commandParts)
-    }
 }
