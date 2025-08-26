@@ -2,10 +2,12 @@ package com.codacy.intellij.plugin.views
 
 import com.codacy.intellij.plugin.listeners.ServiceState
 import com.codacy.intellij.plugin.listeners.WidgetStateListener
+import com.codacy.intellij.plugin.services.agent.AiAgentName
 import com.codacy.intellij.plugin.services.agent.AiAgentService
 import com.codacy.intellij.plugin.services.agent.model.RepositoryParams
 import com.codacy.intellij.plugin.services.cli.CodacyCliService
 import com.codacy.intellij.plugin.services.cli.CodacyCliService.CodacyCliState
+import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.wm.StatusBar
@@ -91,12 +93,20 @@ class CodacyCliStatusBarWidget(private val project: Project) :
                 popup.add(installBtn)
             }
 
-            if (aiAgentService?.mcpAiAgentState == AiAgentService.AiAgentState.NOT_INSTALLED) {
-                popup.add(installMcpButton())
-            }
+            val aiAgent = aiAgentService?.aiAgent ?: return@Consumer
 
-            if (aiAgentService?.guidelinesAiAgentState == AiAgentService.AiAgentState.NOT_INSTALLED) {
-                popup.add(installGuidelinesButton())
+            when (aiAgent.isPluginInstalled() to aiAgent.isPluginEnabled()) {
+                false to false -> popup.add(goToPluginsPageButton(aiAgent.aiAgentName))
+                true to false -> popup.add(goToPluginsPageButton(aiAgent.aiAgentName))
+                true to true -> {
+                    if (aiAgentService?.mcpAiAgentState == AiAgentService.AiAgentState.NOT_INSTALLED) {
+                        popup.add(installMcpButton())
+                    }
+
+                    if (aiAgentService?.guidelinesAiAgentState == AiAgentService.AiAgentState.NOT_INSTALLED) {
+                        popup.add(installGuidelinesButton())
+                    }
+                }
             }
 
             popup.show(event.component, event.x, event.y)
@@ -127,6 +137,15 @@ class CodacyCliStatusBarWidget(private val project: Project) :
             aiAgentService?.createOrUpdateMcpConfiguration()
         }
         return mcpInstalledBtn
+    }
+
+    private fun goToPluginsPageButton(aiAgentName: AiAgentName): JMenuItem {
+        val openPluginsPageBtn = JMenuItem("Add ${aiAgentName} Plugin")
+        openPluginsPageBtn.addActionListener {
+            val settings = ShowSettingsUtil.getInstance()
+            settings.showSettingsDialog(project, "plugins")
+        }
+        return openPluginsPageBtn
     }
 
     @OptIn(DelicateCoroutinesApi::class)
