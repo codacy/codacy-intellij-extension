@@ -108,32 +108,30 @@ class CodacyPullRequestSummaryToolWindowFactory : ToolWindowFactory {
     private fun updateToolWindowContent(project: Project, toolWindow: ToolWindow) {
         toolWindow.contentManager.removeAllContents(true)
         toolWindow.setIcon(IconUtils.CodacyIcon)
+
         ApplicationManager.getApplication().invokeLater {
             toolWindow.setIcon(IconUtils.CodacyIcon)
         }
+
+        val configService = service<Config>()
+        configService.init()
+
+        val isUserLoggedOut = configService.storedApiToken.isNullOrBlank()
+        val isUserLoggedIn = !isUserLoggedOut
+
         val panel = JPanel(BorderLayout())
 
-        val buttonsPanel = JPanel(FlowLayout(FlowLayout.LEFT))
+        if (isUserLoggedOut) {
+            val buttonsPanel = JPanel(FlowLayout(FlowLayout.LEFT))
 
-        val signInButton = JButton("Sign in")
-        signInButton.addActionListener {
-            startLocalHttpServer(project, toolWindow)
-        }
-        buttonsPanel.add(signInButton, BorderLayout.NORTH)
-
-        val initConfigButton = JButton("Reload token")
-        initConfigButton.addActionListener { e: ActionEvent? ->
-            val configService: Config = service()
-            configService.init()
-            SwingUtilities.invokeLater {
-                val repositoryManager = project.service<RepositoryManager>()
-                repositoryManager.notifyDidChangeConfig()
-                updateToolWindowContent(project, toolWindow)
+            val signInButton = JButton("Sign in")
+            signInButton.addActionListener {
+                startLocalHttpServer(project, toolWindow)
             }
-        }
+            buttonsPanel.add(signInButton, BorderLayout.NORTH)
 
-        buttonsPanel.add(initConfigButton, BorderLayout.NORTH)
-        panel.add(buttonsPanel, BorderLayout.NORTH)
+            panel.add(buttonsPanel, BorderLayout.NORTH)
+        }
 
         val nodeContent = NodeContent(
             text = "Codacy",
@@ -144,10 +142,9 @@ class CodacyPullRequestSummaryToolWindowFactory : ToolWindowFactory {
         tree.isRootVisible = false
         tree.cellRenderer = CustomIconTreeCellRenderer()
 
-        val configService = service<Config>()
-        configService.init()
+        if (isUserLoggedIn) {
+            val lowerButtonPanel = JPanel(FlowLayout(FlowLayout.CENTER))
 
-        if (!configService.storedApiToken.isNullOrBlank()) {
             val repositoryManager = project.service<RepositoryManager>()
 
             val refreshButton = JButton(AllIcons.General.InlineRefresh)
@@ -179,6 +176,17 @@ class CodacyPullRequestSummaryToolWindowFactory : ToolWindowFactory {
                 }
             })
 
+            val initConfigButton = JButton("Reload token")
+            initConfigButton.addActionListener { e: ActionEvent? ->
+                val configService: Config = service()
+                configService.init()
+                SwingUtilities.invokeLater {
+                    val repositoryManager = project.service<RepositoryManager>()
+                    repositoryManager.notifyDidChangeConfig()
+                    updateToolWindowContent(project, toolWindow)
+                }
+            }
+
             val logOutButton = JButton("Log out")
             logOutButton.addActionListener {
                 val confirmed = JOptionPane.showConfirmDialog(
@@ -196,7 +204,11 @@ class CodacyPullRequestSummaryToolWindowFactory : ToolWindowFactory {
                     updateToolWindowContent(project, toolWindow)
                 }
             }
-            panel.add(logOutButton, BorderLayout.SOUTH)
+
+            lowerButtonPanel.add(logOutButton, BorderLayout.NORTH)
+            lowerButtonPanel.add(initConfigButton, BorderLayout.NORTH)
+
+            panel.add(lowerButtonPanel, BorderLayout.SOUTH)
         }
         val contentFactory = ContentFactory.getInstance()
         val content = contentFactory.createContent(panel, "", false)
@@ -264,7 +276,8 @@ class CodacyPullRequestSummaryToolWindowFactory : ToolWindowFactory {
             parentNode.add(node)
         }
 
-        if (pr.gates?.qualityGate?.securityIssueThreshold?.let { it > 0 } == true && (pr.prWithAnalysis?.newIssues ?: 0) > 0) {
+        if (pr.gates?.qualityGate?.securityIssueThreshold?.let { it > 0 } == true && (pr.prWithAnalysis?.newIssues
+                ?: 0) > 0) {
             val gate: Int = pr.gates!!.qualityGate.securityIssueThreshold
             val minimumSeverity: String? = pr.gates!!.qualityGate.securityIssueMinimumSeverity
             nodeContent = NodeContent(
