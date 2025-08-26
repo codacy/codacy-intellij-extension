@@ -54,7 +54,7 @@ class StartupListener : StartupActivity {
             val repositoryManager = gitResult.first
             val gitInfo = gitResult.second
 
-            CodacyCliService.getService(
+            val cli = CodacyCliService.getService(
                 Provider.fromString(gitInfo.provider), gitInfo.organization, gitInfo.repository, project,
             )
 

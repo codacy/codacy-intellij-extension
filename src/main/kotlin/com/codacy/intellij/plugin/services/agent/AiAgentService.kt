@@ -268,9 +268,4 @@ class AiAgentService {
                 .stateChanged(serviceState)
         }
     }
-
-    private fun isNodePresent(): Boolean =
-        ProcessBuilder("node", "--version")
-            .start()
-            .waitFor() == 0
 }
