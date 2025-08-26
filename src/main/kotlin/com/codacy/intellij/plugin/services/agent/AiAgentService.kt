@@ -46,6 +46,7 @@ class AiAgentService {
     lateinit var repository: String
     lateinit var rootPath: String
 
+    private val aiAgents: MutableMap<AiAgentName, AiAgent> = mutableMapOf()
     private val config = Config.instance
     private var accountToken = config.storedApiToken
 
@@ -67,23 +68,11 @@ class AiAgentService {
 
             val service = project.getService(AiAgentService::class.java)
 
-            // NOTE: Hardcoded as we currently only support Junie
-            // Later we can detect installed plugins with the helper functions and prompt user which to use
-            val aiAgent = AiAgent.JUNIE(
-                Paths.get(pathsBehaviour.rootPath(project)),
-                Paths.get(
-                    pathsBehaviour.toCliPath(
-                        System.getProperty("user.home") ?: throw RuntimeException("Failed to get user home")
-                    )
-                ),
-            )
-
             service.initService(
                 Provider.fromString(gitInfo.provider),
                 gitInfo.organization,
                 gitInfo.repository,
                 project,
-                aiAgent,
                 pathsBehaviour
             )
 
@@ -97,22 +86,37 @@ class AiAgentService {
         organization: String,
         repository: String,
         project: Project,
-        aiAgent: AiAgent,
         pathsBehaviour: PathsBehaviour
     ) {
-
         if (!this.isServiceInstantiated) {
+            val projectPath = Paths.get(pathsBehaviour.rootPath(project))
+            val homePath = Paths.get(
+                pathsBehaviour.toCliPath(
+                    System.getProperty("user.home") ?: throw RuntimeException("Failed to get user home")
+                )
+            )
+
+            aiAgents[AiAgentName.JUNIE] =
+                AiAgent.JUNIE(projectPath, homePath)
+
+            aiAgents[AiAgentName.GITHUB_COPILOT] =
+                AiAgent.GITHUB_COPILOT(projectPath, homePath)
+
             this.provider = provider
             this.organization = organization
             this.repository = repository
             this.project = project
             this.rootPath = pathsBehaviour.rootPath(project)
-            this.aiAgent = aiAgent
 
             setServiceState(ServiceState.RUNNING)
 
             this.isServiceInstantiated = true
         }
+
+        val selectedAiAgent = aiAgents[config.state.selectedAiAgent]
+
+        this.aiAgent =
+            selectedAiAgent ?: throw RuntimeException("No AI Agent selected, please select one in the settings")
 
         mcpAiAgentState = AiAgentState.NOT_INSTALLED
         guidelinesAiAgentState = AiAgentState.NOT_INSTALLED
