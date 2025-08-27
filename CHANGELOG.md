@@ -6,5 +6,4 @@
 
 ### Added
 
-- Added support for local scanning using Codacy's cli v2
-- Support new versions of the IDEA products
+- Added support for Codacy MCP with both Junie and GitHub Copilot on Linux and macOS
