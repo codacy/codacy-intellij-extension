@@ -1,5 +1,6 @@
 package com.codacy.intellij.plugin.services.common
 
+import com.codacy.intellij.plugin.services.agent.AiAgentName
 import com.codacy.intellij.plugin.services.api.Api
 import com.codacy.intellij.plugin.telemetry.Telemetry
 import com.intellij.credentialStore.CredentialAttributes
@@ -51,7 +52,8 @@ class Config : PersistentStateComponent<Config.State> {
         var userId: Int? = null,
         var isFirstRun: Boolean = true,
         var allowGenerateGuidelines: Boolean = false,
-        var addAnalysisGuidelines: Boolean = false
+        var addAnalysisGuidelines: Boolean = false,
+        var selectedAiAgent: AiAgentName = AiAgentName.JUNIE
     )
 
     override fun getState(): State = state

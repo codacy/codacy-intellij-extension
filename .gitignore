@@ -8,3 +8,7 @@ build
 
 # Ignore IntelliJ AI rules
 .junie/guidelines.md
+
+
+# Ignore IntelliJ AI rules
+.github/copilot-instructions.md

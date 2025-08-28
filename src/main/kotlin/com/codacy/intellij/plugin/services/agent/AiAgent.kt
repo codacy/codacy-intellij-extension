@@ -17,8 +17,22 @@ import java.nio.file.Paths
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.readText
 
+enum class AiAgentName {
+    JUNIE,
+    GITHUB_COPILOT;
+
+    override fun toString(): String {
+        return when (this) {
+            JUNIE -> "Junie Agent"
+            GITHUB_COPILOT -> "GitHub Copilot Agent"
+        }
+    }
+}
+
+
 sealed class AiAgent {
 
+    abstract val aiAgentName: AiAgentName
     abstract val pluginId: String
 
     abstract val mcpConfigurationPath: Path
@@ -95,6 +109,9 @@ sealed class AiAgent {
                 runCatching { Files.size(guidelinesFilePath) }.getOrDefault(0L) > 0L
 
     class JUNIE(override val projectPath: Path, override val homePath: Path) : AiAgent() {
+
+        override val aiAgentName: AiAgentName = AiAgentName.JUNIE
+
         override val pluginId: String = "org.jetbrains.junie"
 
         override val mcpConfigurationPath: Path =
@@ -106,10 +123,13 @@ sealed class AiAgent {
         override val guidelinesFilePath: Path =
             Paths.get(projectPath.toString(), ".junie", "guidelines.md")
 
-        override fun toString() = "Junie Agent"
+        override fun toString() = aiAgentName.toString()
     }
 
     class GITHUB_COPILOT(override val projectPath: Path, override val homePath: Path) : AiAgent() {
+
+        override val aiAgentName: AiAgentName = AiAgentName.GITHUB_COPILOT
+
         override val pluginId: String = "com.github.copilot"
 
         override val mcpConfigurationPath: Path =
@@ -121,6 +141,6 @@ sealed class AiAgent {
         override val guidelinesFilePath: Path =
             Paths.get(projectPath.toString(), ".github", "copilot-instructions.md")
 
-        override fun toString() = "GitHub Copilot Agent"
+        override fun toString() = aiAgentName.toString()
     }
 }

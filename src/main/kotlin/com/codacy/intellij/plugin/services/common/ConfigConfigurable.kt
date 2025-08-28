@@ -6,6 +6,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.options.SearchableConfigurable
 import org.jetbrains.annotations.NonNls
 import javax.swing.JComponent
+import com.codacy.intellij.plugin.services.agent.AiAgentName
 
 class ConfigConfigurable : SearchableConfigurable {
 
@@ -15,6 +16,7 @@ class ConfigConfigurable : SearchableConfigurable {
     override fun createComponent(): JComponent? {
         form = ConfigWindowForm()
         fetchAllAvailableCliVersions()
+        populateAiAgentsDropdown()
         // Initialize checkboxes with current state
         form?.setGenerateGuidelines(config.state.allowGenerateGuidelines)
         form?.setAnalyzeGeneratedCode(config.state.addAnalysisGuidelines)
@@ -37,17 +39,28 @@ class ConfigConfigurable : SearchableConfigurable {
         }
     }
 
+    private fun populateAiAgentsDropdown() {
+        val state = config.state
+        val agents = listOf(
+            AiAgentName.JUNIE,
+            AiAgentName.GITHUB_COPILOT
+        )
+        form?.setAvailableAiAgentsDropdown(agents, state.selectedAiAgent)
+    }
+
     override fun isModified(): Boolean {
         val state = Config.instance.state
         val versionChanged = form?.getSelectedAvailableCliVersion() != state.selectedCliVersion
+        val selectedAgentChanged = form?.getSelectedAiAgent() != state.selectedAiAgent
         val generateGuidelinesChanged = (form?.getGenerateGuidelines() ?: false) != state.allowGenerateGuidelines
         val analyzeGeneratedCodeChanged = (form?.getAnalyzeGeneratedCode() ?: false) != state.addAnalysisGuidelines
-        return versionChanged || generateGuidelinesChanged || analyzeGeneratedCodeChanged
+        return versionChanged || selectedAgentChanged || generateGuidelinesChanged || analyzeGeneratedCodeChanged
     }
 
     override fun apply() {
         val state = Config.instance.state
         state.selectedCliVersion = form?.getSelectedAvailableCliVersion() ?: ""
+        state.selectedAiAgent = form?.getSelectedAiAgent() ?: AiAgentName.JUNIE
         state.allowGenerateGuidelines = form?.getGenerateGuidelines() ?: false
         state.addAnalysisGuidelines = form?.getAnalyzeGeneratedCode() ?: false
         // Ensure settings are persisted immediately
@@ -57,6 +70,7 @@ class ConfigConfigurable : SearchableConfigurable {
     override fun reset() {
         val state = Config.instance.state
         form?.setAvailableCliVersionsDropdown(state.availableCliVersions, state.selectedCliVersion)
+        populateAiAgentsDropdown()
         form?.setGenerateGuidelines(state.allowGenerateGuidelines)
         form?.setAnalyzeGeneratedCode(state.addAnalysisGuidelines)
     }
