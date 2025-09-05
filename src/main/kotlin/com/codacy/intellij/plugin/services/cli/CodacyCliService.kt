@@ -28,6 +28,7 @@ import com.codacy.intellij.plugin.telemetry.Telemetry
 import com.intellij.icons.AllIcons
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
+import com.intellij.openapi.application.ApplicationNamesInfo
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.updateSettings.impl.pluginsAdvertisement.notificationGroup
@@ -127,6 +128,8 @@ class CodacyCliService() {
             this.pathsBehaviour = pathsBehaviour
             this.rootPath = pathsBehaviour.rootPath(project)
 
+            detectIde()
+
             setServiceState(ServiceState.RUNNING)
 
             isServiceInstantiated = true
@@ -200,6 +203,11 @@ class CodacyCliService() {
                 }
 
                 else -> {
+                    notificationGroup.createNotification(
+                        "Unsupported OS",
+                        "The Codacy plugin does not support the operating system: $systemOs",
+                        NotificationType.ERROR
+                    ).notify(project)
                     throw IllegalStateException("Unsupported OS: $systemOs")
                 }
             }
@@ -642,6 +650,18 @@ class CodacyCliService() {
             function(tempFile, tempFilePath)
         } finally {
             tempFile.delete()
+        }
+    }
+
+    private fun detectIde() {
+        val ide = ApplicationNamesInfo.getInstance()
+
+        if (ide.productName.lowercase().contains("idea").not()) {
+            notificationGroup.createNotification(
+                "Non supported IDE Detected",
+                "Currently we do not actively test the Codacy plugin on ${ide.productName}. Please consider using it on IntelliJ IDEA for the best experience.",
+                NotificationType.INFORMATION
+            ).notify(project)
         }
     }
 }
