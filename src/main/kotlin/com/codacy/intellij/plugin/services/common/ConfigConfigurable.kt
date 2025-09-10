@@ -1,12 +1,12 @@
 package com.codacy.intellij.plugin.services.common
 
+import com.codacy.intellij.plugin.services.agent.AiAgentName
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_CLI_RELEASES_LINK
 import com.google.gson.JsonParser
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.options.SearchableConfigurable
 import org.jetbrains.annotations.NonNls
 import javax.swing.JComponent
-import com.codacy.intellij.plugin.services.agent.AiAgentName
 
 class ConfigConfigurable : SearchableConfigurable {
 
@@ -28,13 +28,9 @@ class ConfigConfigurable : SearchableConfigurable {
         ApplicationManager.getApplication().executeOnPooledThread {
             ApplicationManager.getApplication().invokeLater {
                 val state = config.state
-                if (state.availableCliVersions.isEmpty()) {
-                    val tagNames = fetchAvailableCliVersions()
-                    state.availableCliVersions = tagNames
-                    form?.setAvailableCliVersionsDropdown(tagNames, state.selectedCliVersion)
-                } else {
-                    form?.setAvailableCliVersionsDropdown(state.availableCliVersions, state.selectedCliVersion)
-                }
+                val tagNames = fetchAvailableCliVersions()
+                state.availableCliVersions = tagNames
+                form?.setAvailableCliVersionsDropdown(tagNames, state.selectedCliVersion)
             }
         }
     }
