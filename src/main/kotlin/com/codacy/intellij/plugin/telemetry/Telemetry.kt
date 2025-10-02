@@ -43,36 +43,41 @@ object Telemetry {
 
     private fun normalizedIde(): String {
         val product = ApplicationNamesInfo.getInstance().productName.lowercase()
-        val productKey = when {
-            product.contains("intellij") -> "intellij"
-            product.contains("webstorm") -> "webstorm"
-            product.contains("pycharm") -> "pycharm"
-            product.contains("phpstorm") -> "phpstorm"
-            product.contains("rubymine") -> "rubymine"
-            product.contains("goland") -> "goland"
-            product.contains("rider") -> "rider"
-            product.contains("clion") -> "clion"
-            product.contains("datagrip") -> "datagrip"
-            product.contains("dataspell") -> "dataspell"
-            else -> product.split(" ").firstOrNull() ?: "unknown"
-        }
+        val known = listOf(
+            "intellij",
+            "webstorm",
+            "pycharm",
+            "phpstorm",
+            "rubymine",
+            "goland",
+            "rider",
+            "clion",
+            "datagrip",
+            "dataspell"
+        )
+
+        val match = known.firstOrNull { product.contains(it) }
+        val productKey = match ?: product.split(" ").firstOrNull() ?: "unknown"
         return "jetbrains $productKey"
     }
 
     private fun normalizedOs(): String {
         val raw = (System.getProperty("os.name") ?: "unknown").lowercase()
+        val isMac = raw.contains("mac") || raw.contains("darwin")
+        val isWin = raw.contains("win")
+        val linuxTokens = listOf("nux", "nix", "aix", "linux")
+        val isLinux = linuxTokens.any { raw.contains(it) }
+
         return when {
-            raw.contains("mac") || raw.contains("darwin") -> "darwin"
-            raw.contains("win") -> "win32"
-            raw.contains("nux") || raw.contains("nix") || raw.contains("aix") || raw.contains("linux") -> "linux"
+            isMac -> "darwin"
+            isWin -> "win32"
+            isLinux -> "linux"
             else -> raw
         }
     }
 
     private val ide: String by lazy { normalizedIde() }
     private val os: String by lazy { normalizedOs() }
-
-    // Organization context intentionally omitted to keep PR concise
 
     private val analytics: Analytics by lazy {
         Analytics("ckhmOOSC1drlNKLYmzbK6BAJo8drHqNQ") {

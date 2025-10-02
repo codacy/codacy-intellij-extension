@@ -109,7 +109,6 @@ class RepositoryManager(private val project: Project) {
             notifyDidUpdatePullRequest()
             setNewPullRequestState(PullRequestState.NoPullRequest)
             
-            // Set branch state based on current situation
             if (branch == null) {
                 setNewBranchState(BranchState.OnUnknownBranch)
             } else if (branch == repository?.defaultBranch?.name) {
@@ -123,7 +122,9 @@ class RepositoryManager(private val project: Project) {
             val currentHeadCommitSHA: String = GitProvider.getHeadCommitSHA(project)!!
             val currentHeadAhead: Boolean = GitProvider.isHeadAhead(project)
             if (pullRequest != null && prState === PullRequestState.Loaded && currentHeadCommitSHA != pullRequest?.meta?.headCommitSHA && !currentHeadAhead) {
-                if (refreshTimeout.isTimeoutRunning()) refreshTimeout.clearTimeout()
+                if (refreshTimeout.isTimeoutRunning()) {
+                    refreshTimeout.clearTimeout()
+                }
                 refreshTimeout.startTimeout(10000) {
                     Logger.info("Pushed all local commits, refreshing pull request...")
                     pullRequestInstance!!.refresh()
@@ -205,9 +206,7 @@ class RepositoryManager(private val project: Project) {
         val stateChange: Boolean = newState !== state
         state = newState
         if (stateChange) {
-            // Track repository state change telemetry
             Telemetry.track(RepositoryStateChangeEvent(newState.name))
-            
 //            TODO("execute command setContext")
             notifyDidChangeState()
         }
