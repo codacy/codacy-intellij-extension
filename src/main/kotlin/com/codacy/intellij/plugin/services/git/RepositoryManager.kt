@@ -3,8 +3,7 @@ package com.codacy.intellij.plugin.services.git
 import com.codacy.intellij.plugin.services.api.Api
 import com.codacy.intellij.plugin.services.api.models.*
 import com.codacy.intellij.plugin.services.common.*
-import com.codacy.intellij.plugin.telemetry.BranchStateChangeEvent
-import com.codacy.intellij.plugin.telemetry.Telemetry
+import com.codacy.intellij.plugin.telemetry.*
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
@@ -21,11 +20,21 @@ const val MAX_LOAD_ATTEMPTS: Int = 5
 class RepositoryManager(private val project: Project) {
 
     enum class RepositoryManagerState {
-        NoRepository, NoRemote, Initializing, NeedsAuthentication, Loaded
+        Initializing,
+        NeedsAuthentication,
+        NoGitRepository,
+        Loaded,
+        NoRepository
     }
 
     enum class PullRequestState {
         NoPullRequest, Loaded
+    }
+
+    enum class BranchState {
+        OnAnalysedBranch,
+        OnUnknownBranch,
+        OnPullRequestBranch
     }
 
     var currentRepository: GitRepository? = null
@@ -34,6 +43,7 @@ class RepositoryManager(private val project: Project) {
     private var branch: String? = null
     var pullRequest: PullRequest? = null
     var prState: PullRequestState = PullRequestState.NoPullRequest
+    var branchState: BranchState = BranchState.OnUnknownBranch
     private var loadAttempts: Int = 0
     private val loadTimeout: TimeoutManager = TimeoutManager()
     private val refreshTimeout: TimeoutManager = TimeoutManager()
@@ -65,7 +75,7 @@ class RepositoryManager(private val project: Project) {
                                 setNewState(RepositoryManagerState.Initializing)
                             } else {
                                 if (remoteUrl.isNullOrEmpty()) {
-                                    setNewState(RepositoryManagerState.NoRemote)
+                                    setNewState(RepositoryManagerState.NoGitRepository)
                                     Logger.error("No remote found")
                                     return@launch
                                 }
@@ -97,12 +107,22 @@ class RepositoryManager(private val project: Project) {
             branch = currentHead
             pullRequest = null
             notifyDidUpdatePullRequest()
-            prState = PullRequestState.NoPullRequest
+            setNewPullRequestState(PullRequestState.NoPullRequest)
+            
+            // Set branch state based on current situation
+            if (branch == null) {
+                setNewBranchState(BranchState.OnUnknownBranch)
+            } else if (branch == repository?.defaultBranch?.name) {
+                setNewBranchState(BranchState.OnAnalysedBranch)
+            } else {
+                setNewBranchState(BranchState.OnUnknownBranch)
+            }
+            
             loadPullRequest()
         } else {
             val currentHeadCommitSHA: String = GitProvider.getHeadCommitSHA(project)!!
             val currentHeadAhead: Boolean = GitProvider.isHeadAhead(project)
-            if (pullRequest != null && prState === PullRequestState.Loaded && currentHeadCommitSHA !== pullRequest?.meta?.headCommitSHA && !currentHeadAhead) {
+            if (pullRequest != null && prState === PullRequestState.Loaded && currentHeadCommitSHA != pullRequest?.meta?.headCommitSHA && !currentHeadAhead) {
                 if (refreshTimeout.isTimeoutRunning()) refreshTimeout.clearTimeout()
                 refreshTimeout.startTimeout(10000) {
                     Logger.info("Pushed all local commits, refreshing pull request...")
@@ -121,13 +141,14 @@ class RepositoryManager(private val project: Project) {
         branch = currentRepository?.currentBranch?.name
         if (branch.isNullOrBlank()) {
             Logger.warn("No HEAD information found: ${currentRepository?.currentBranch}")
-            prState = PullRequestState.NoPullRequest
+            setNewPullRequestState(PullRequestState.NoPullRequest)
             return
         }
 
         if (branch == repo.defaultBranch.name) {
             Logger.info("Current branch is the default branch: $branch")
-            prState = PullRequestState.NoPullRequest
+            setNewPullRequestState(PullRequestState.NoPullRequest)
+            setNewBranchState(BranchState.OnAnalysedBranch)
             return
         }
 
@@ -142,7 +163,8 @@ class RepositoryManager(private val project: Project) {
 
                         if (pr == null) {
                             Logger.info("No PR found in Codacy for: $branch")
-                            prState = PullRequestState.NoPullRequest
+                            setNewPullRequestState(PullRequestState.NoPullRequest)
+                            setNewBranchState(BranchState.OnUnknownBranch)
 
                             if (loadAttempts < MAX_LOAD_ATTEMPTS) {
                                 loadTimeout.startTimeout(LOAD_RETRY_TIME) {
@@ -163,7 +185,8 @@ class RepositoryManager(private val project: Project) {
                             notifyDidUpdatePullRequest()
                         }
 
-                        prState = PullRequestState.Loaded
+                        setNewPullRequestState(PullRequestState.Loaded)
+                        setNewBranchState(BranchState.OnPullRequestBranch)
                     } catch (e: Exception) {
                         Logger.error("Error loading pull request: ${e.message}")
                     }
@@ -182,8 +205,29 @@ class RepositoryManager(private val project: Project) {
         val stateChange: Boolean = newState !== state
         state = newState
         if (stateChange) {
+            // Track repository state change telemetry
+            Telemetry.track(RepositoryStateChangeEvent(newState.name))
+            
 //            TODO("execute command setContext")
             notifyDidChangeState()
+        }
+    }
+
+    fun setNewBranchState(newState: BranchState) {
+        val stateChange: Boolean = newState !== branchState
+        branchState = newState
+        if (stateChange) {
+            // Track branch state change telemetry
+            Telemetry.track(BranchStateChangeEvent(newState.name))
+        }
+    }
+
+    fun setNewPullRequestState(newState: PullRequestState) {
+        val stateChange: Boolean = newState !== prState
+        prState = newState
+        if (stateChange) {
+            // Track pull request state change telemetry
+            Telemetry.track(PullRequestStateChangeEvent(newState.name))
         }
     }
 
