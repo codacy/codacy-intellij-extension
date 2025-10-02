@@ -25,9 +25,7 @@ data class RepositoryStateChangeEvent(val state: String) : TelemetryEvent("Repos
     override fun toPayload(): Map<String, Any?> = mapOf("state" to state)
 }
 
-data class BranchStateChangeEvent(val state: String) : TelemetryEvent("Branch State Change") {
-    override fun toPayload(): Map<String, Any?> = mapOf("state" to state)
-}
+// Branch state change telemetry removed (no longer tracked)
 
 data class PullRequestStateChangeEvent(val state: String) : TelemetryEvent("Pull Request State Change") {
     override fun toPayload(): Map<String, Any?> = mapOf("state" to state)

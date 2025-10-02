@@ -31,19 +31,12 @@ class RepositoryManager(private val project: Project) {
         NoPullRequest, Loaded
     }
 
-    enum class BranchState {
-        OnAnalysedBranch,
-        OnUnknownBranch,
-        OnPullRequestBranch
-    }
-
     var currentRepository: GitRepository? = null
     var repository: RepositoryData? = null
     var state: RepositoryManagerState = RepositoryManagerState.Initializing
     private var branch: String? = null
     var pullRequest: PullRequest? = null
     var prState: PullRequestState = PullRequestState.NoPullRequest
-    var branchState: BranchState = BranchState.OnUnknownBranch
     private var loadAttempts: Int = 0
     private val loadTimeout: TimeoutManager = TimeoutManager()
     private val refreshTimeout: TimeoutManager = TimeoutManager()
@@ -108,15 +101,7 @@ class RepositoryManager(private val project: Project) {
             pullRequest = null
             notifyDidUpdatePullRequest()
             setNewPullRequestState(PullRequestState.NoPullRequest)
-            
-            if (branch == null) {
-                setNewBranchState(BranchState.OnUnknownBranch)
-            } else if (branch == repository?.defaultBranch?.name) {
-                setNewBranchState(BranchState.OnAnalysedBranch)
-            } else {
-                setNewBranchState(BranchState.OnUnknownBranch)
-            }
-            
+
             loadPullRequest()
         } else {
             val currentHeadCommitSHA: String = GitProvider.getHeadCommitSHA(project)!!
@@ -149,7 +134,6 @@ class RepositoryManager(private val project: Project) {
         if (branch == repo.defaultBranch.name) {
             Logger.info("Current branch is the default branch: $branch")
             setNewPullRequestState(PullRequestState.NoPullRequest)
-            setNewBranchState(BranchState.OnAnalysedBranch)
             return
         }
 
@@ -165,7 +149,6 @@ class RepositoryManager(private val project: Project) {
                         if (pr == null) {
                             Logger.info("No PR found in Codacy for: $branch")
                             setNewPullRequestState(PullRequestState.NoPullRequest)
-                            setNewBranchState(BranchState.OnUnknownBranch)
 
                             if (loadAttempts < MAX_LOAD_ATTEMPTS) {
                                 loadTimeout.startTimeout(LOAD_RETRY_TIME) {
@@ -187,7 +170,6 @@ class RepositoryManager(private val project: Project) {
                         }
 
                         setNewPullRequestState(PullRequestState.Loaded)
-                        setNewBranchState(BranchState.OnPullRequestBranch)
                     } catch (e: Exception) {
                         Logger.error("Error loading pull request: ${e.message}")
                     }
@@ -209,15 +191,6 @@ class RepositoryManager(private val project: Project) {
             Telemetry.track(RepositoryStateChangeEvent(newState.name))
 //            TODO("execute command setContext")
             notifyDidChangeState()
-        }
-    }
-
-    fun setNewBranchState(newState: BranchState) {
-        val stateChange: Boolean = newState !== branchState
-        branchState = newState
-        if (stateChange) {
-            // Track branch state change telemetry
-            Telemetry.track(BranchStateChangeEvent(newState.name))
         }
     }
 
