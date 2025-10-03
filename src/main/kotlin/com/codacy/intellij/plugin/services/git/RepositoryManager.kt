@@ -1,9 +1,14 @@
 package com.codacy.intellij.plugin.services.git
 
 import com.codacy.intellij.plugin.services.api.Api
-import com.codacy.intellij.plugin.services.api.models.*
-import com.codacy.intellij.plugin.services.common.*
-import com.codacy.intellij.plugin.telemetry.*
+import com.codacy.intellij.plugin.services.api.models.RepositoryData
+import com.codacy.intellij.plugin.services.common.Config
+import com.codacy.intellij.plugin.services.common.GitRemoteParser
+import com.codacy.intellij.plugin.services.common.Logger
+import com.codacy.intellij.plugin.services.common.TimeoutManager
+import com.codacy.intellij.plugin.telemetry.PullRequestStateChangeEvent
+import com.codacy.intellij.plugin.telemetry.RepositoryStateChangeEvent
+import com.codacy.intellij.plugin.telemetry.Telemetry
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
@@ -57,7 +62,7 @@ class RepositoryManager(private val project: Project) {
         }
 
         if (currentRepository != gitRepository) {
-            ProgressManager.getInstance().run(object: Task.Backgroundable(project, "Opening repository", false) {
+            ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Opening repository", false) {
                 override fun run(indicator: com.intellij.openapi.progress.ProgressIndicator) {
                     GlobalScope.launch {
                         currentRepository = gitRepository
@@ -106,7 +111,7 @@ class RepositoryManager(private val project: Project) {
         } else {
             val currentHeadCommitSHA: String = GitProvider.getHeadCommitSHA(project)!!
             val currentHeadAhead: Boolean = GitProvider.isHeadAhead(project)
-            if (pullRequest != null && prState === PullRequestState.Loaded && currentHeadCommitSHA != pullRequest?.meta?.headCommitSHA && !currentHeadAhead) {
+            if (isPrLoadedAndNotCheckedOut(pullRequest, prState, currentHeadCommitSHA, currentHeadAhead)) {
                 if (refreshTimeout.isTimeoutRunning()) {
                     refreshTimeout.clearTimeout()
                 }
@@ -117,6 +122,18 @@ class RepositoryManager(private val project: Project) {
             }
         }
     }
+
+    private fun isPrLoadedAndNotCheckedOut(
+        pullRequest: PullRequest?,
+        prState: PullRequestState,
+        currentHeadCommitSHA: String,
+        currentHeadAhead: Boolean
+    ): Boolean =
+        pullRequest != null &&
+                prState === PullRequestState.Loaded &&
+                currentHeadCommitSHA != pullRequest.meta?.headCommitSHA &&
+                !currentHeadAhead
+
 
     @OptIn(DelicateCoroutinesApi::class)
     private suspend fun loadPullRequest() {
@@ -137,7 +154,7 @@ class RepositoryManager(private val project: Project) {
             return
         }
 
-        ProgressManager.getInstance().run(object: Task.Backgroundable(project, "Loading pull request", false) {
+        ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Loading pull request", false) {
             override fun run(indicator: com.intellij.openapi.progress.ProgressIndicator) {
                 GlobalScope.launch {
                     try {
