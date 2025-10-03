@@ -1,6 +1,7 @@
 package com.codacy.intellij.plugin.telemetry
 
 import com.codacy.intellij.plugin.services.common.Config
+import com.codacy.intellij.plugin.services.common.SystemDetectionService
 import com.intellij.openapi.application.ApplicationNamesInfo
 import com.intellij.openapi.components.Service
 import com.segment.analytics.kotlin.core.Analytics
@@ -41,43 +42,10 @@ data class UnexpectedErrorEvent(val message: String) : TelemetryEvent("Unexpecte
 @Service
 object Telemetry {
 
-    private fun normalizedIde(): String {
-        val product = ApplicationNamesInfo.getInstance().productName.lowercase()
-        val known = listOf(
-            "intellij",
-            "webstorm",
-            "pycharm",
-            "phpstorm",
-            "rubymine",
-            "goland",
-            "rider",
-            "clion",
-            "datagrip",
-            "dataspell"
-        )
-
-        val match = known.firstOrNull { product.contains(it) }
-        val productKey = match ?: product.split(" ").firstOrNull() ?: "unknown"
-        return "jetbrains $productKey"
+    private val ide: String by lazy {
+        "JetBrains ${SystemDetectionService.detectIde()}"
     }
-
-    private fun normalizedOs(): String {
-        val raw = (System.getProperty("os.name") ?: "unknown").lowercase()
-        val isMac = raw.contains("mac") || raw.contains("darwin")
-        val isWin = raw.contains("win")
-        val linuxTokens = listOf("nux", "nix", "aix", "linux")
-        val isLinux = linuxTokens.any { raw.contains(it) }
-
-        return when {
-            isMac -> "darwin"
-            isWin -> "win32"
-            isLinux -> "linux"
-            else -> raw
-        }
-    }
-
-    private val ide: String by lazy { normalizedIde() }
-    private val os: String by lazy { normalizedOs() }
+    private val os: String by lazy { SystemDetectionService.detectOs().toString() }
 
     private val analytics: Analytics by lazy {
         Analytics("ckhmOOSC1drlNKLYmzbK6BAJo8drHqNQ") {
