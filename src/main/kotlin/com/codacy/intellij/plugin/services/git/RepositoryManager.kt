@@ -47,7 +47,7 @@ class RepositoryManager(private val project: Project) {
 
     // Branch state management
     private var enabledBranches: List<Branch> = emptyList()
-    var branchState: BranchState = BranchState.OnUnknownBranch
+    private var branchState: BranchState = BranchState.OnUnknownBranch
     private var lastBranchState: BranchState? = null
 
     private var onDidUpdatePullRequestListeners = mutableListOf<() -> Unit>()
@@ -83,7 +83,7 @@ class RepositoryManager(private val project: Project) {
                                 val (data) = api.getRepository(repo.provider, repo.organization, repo.repository)
 
                                 repository = data
-                                
+
                                 // Fetch enabled branches
                                 try {
                                     val branchesResponse = api.listRepositoryBranches(repo.provider, repo.organization, repo.repository, true)
@@ -93,7 +93,7 @@ class RepositoryManager(private val project: Project) {
                                     Logger.error("Failed to fetch enabled branches: ${e.message}")
                                     enabledBranches = emptyList()
                                 }
-                                
+
                                 setNewState(RepositoryManagerState.Loaded)
                                 notifyDidLoadRepository()
                                 loadPullRequest()
@@ -271,16 +271,16 @@ class RepositoryManager(private val project: Project) {
 
         // Check if current branch is in enabled branches
         val isEnabledBranch = enabledBranches.any { it.name == currentBranch }
-        
+
         if (isEnabledBranch) {
             Logger.info("Current branch is an analyzed branch: $currentBranch")
-            
+
             // Get the last analyzed commit for this branch
             try {
                 val analysisResponse = api.getRepositoryWithAnalysis(repo.provider, repo.owner, repo.name)
                 val lastAnalysedCommit = analysisResponse.data.lastAnalysedCommit
                 val localHeadCommit = GitProvider.getHeadCommitSHA(project)
-                
+
                 if (localHeadCommit != null && lastAnalysedCommit.sha != localHeadCommit) {
                     Logger.info("Local branch '$currentBranch' is outdated: Local Head ${localHeadCommit.substring(0, 7)} !== Last analysed Head ${lastAnalysedCommit.sha.substring(0, 7)}")
                     setBranchState(BranchState.OnAnalysedBranchOutdated)
@@ -302,10 +302,10 @@ class RepositoryManager(private val project: Project) {
             val previousState = branchState
             branchState = newState
             lastBranchState = previousState
-            
+
             // Emit telemetry
             Telemetry.track(BranchStateChangeEvent(newState.name))
-            
+
             Logger.info("Branch state changed from $previousState to $newState")
         }
     }
