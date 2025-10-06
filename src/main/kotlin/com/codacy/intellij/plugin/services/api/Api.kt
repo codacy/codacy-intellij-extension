@@ -120,6 +120,12 @@ class Api {
         return makeRequest(endpointUrl, GetRepositoryResponse::class.java)
     }
 
+    suspend fun listRepositoryBranches(provider: String, remoteOrganizationName: String, repositoryName: String, enabledOnly: Boolean = true): ListRepositoryBranchesResponse {
+        val enabledParam = if (enabledOnly) "?enabled=true" else ""
+        val endpointUrl = "repositories/$provider/$remoteOrganizationName/$repositoryName/branches$enabledParam"
+        return makeRequest(endpointUrl, ListRepositoryBranchesResponse::class.java)
+    }
+
     suspend fun getUserProfile(): UserProfile? {
         val endpointUrl = "user"
         return try {
