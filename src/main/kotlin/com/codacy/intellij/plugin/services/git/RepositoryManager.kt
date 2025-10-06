@@ -36,6 +36,10 @@ class RepositoryManager(private val project: Project) {
         NoPullRequest, Loaded
     }
 
+    enum class BranchState {
+        OnPullRequestBranch, OnAnalysedBranch, OnAnalysedBranchOutdated, OnUnknownBranch
+    }
+
     var currentRepository: GitRepository? = null
     var repository: RepositoryData? = null
     var state: RepositoryManagerState = RepositoryManagerState.Initializing
@@ -48,6 +52,11 @@ class RepositoryManager(private val project: Project) {
     private val api = Api()
     private val config = Config()
     private var pullRequestInstance: PullRequest? = null
+
+    // Branch state management
+    private var enabledBranches: List<Branch> = emptyList()
+    private var branchState: BranchState = BranchState.OnUnknownBranch
+    private var lastBranchState: BranchState? = null
 
     private var onDidUpdatePullRequestListeners = mutableListOf<() -> Unit>()
     private var onDidLoadRepositoryListeners = mutableListOf<() -> Unit>()
@@ -82,6 +91,17 @@ class RepositoryManager(private val project: Project) {
                                 val (data) = api.getRepository(repo.provider, repo.organization, repo.repository)
 
                                 repository = data
+
+                                // Fetch enabled branches
+                                try {
+                                    val branchesResponse = api.listRepositoryBranches(repo.provider, repo.organization, repo.repository, true)
+                                    enabledBranches = branchesResponse.data
+                                    Logger.info("Fetched ${enabledBranches.size} enabled branches")
+                                } catch (e: Exception) {
+                                    Logger.error("Failed to fetch enabled branches: ${e.message}")
+                                    enabledBranches = emptyList()
+                                }
+
                                 setNewState(RepositoryManagerState.Loaded)
                                 notifyDidLoadRepository()
                                 loadPullRequest()
@@ -109,7 +129,7 @@ class RepositoryManager(private val project: Project) {
 
             loadPullRequest()
         } else {
-            val currentHeadCommitSHA: String = GitProvider.getHeadCommitSHA(project)!!
+            val currentHeadCommitSHA = GitProvider.getHeadCommitSHA(project)
             val currentHeadAhead: Boolean = GitProvider.isHeadAhead(project)
             if (isPrLoadedAndNotCheckedOut(pullRequest, prState, currentHeadCommitSHA, currentHeadAhead)) {
                 if (refreshTimeout.isTimeoutRunning()) {
@@ -196,8 +216,10 @@ class RepositoryManager(private val project: Project) {
     }
 
     fun clear() {
-
         currentRepository = null
+        enabledBranches = emptyList()
+        branchState = BranchState.OnUnknownBranch
+        lastBranchState = null
         setNewState(RepositoryManagerState.NoRepository)
     }
 
@@ -253,6 +275,67 @@ class RepositoryManager(private val project: Project) {
             CoroutineScope(Dispatchers.Default).launch {
                 open(gitRepository)
             }
+        }
+    }
+
+    @OptIn(DelicateCoroutinesApi::class)
+    private suspend fun evaluateBranchState() {
+        if (state != RepositoryManagerState.Loaded || repository == null) return
+
+        val currentBranch = currentRepository?.currentBranch?.name
+        val repo = repository!!
+
+        // If no HEAD name, set to OnUnknownBranch
+        if (currentBranch.isNullOrBlank()) {
+            Logger.warn("No HEAD information found: ${currentRepository?.currentBranch}")
+            setBranchState(BranchState.OnUnknownBranch)
+            return
+        }
+
+        // If PR is loaded, set to OnPullRequestBranch
+        if (prState == PullRequestState.Loaded) {
+            setBranchState(BranchState.OnPullRequestBranch)
+            return
+        }
+
+        // Check if current branch is in enabled branches
+        val isEnabledBranch = enabledBranches.any { it.name == currentBranch }
+
+        if (isEnabledBranch) {
+            Logger.info("Current branch is an analyzed branch: $currentBranch")
+
+            // Get the last analyzed commit for this branch
+            try {
+                val analysisResponse = api.getRepositoryWithAnalysis(repo.provider, repo.owner, repo.name)
+                val lastAnalysedCommit = analysisResponse.data.lastAnalysedCommit
+                val localHeadCommit = GitProvider.getHeadCommitSHA(project)
+
+                if (localHeadCommit != null && lastAnalysedCommit.sha != localHeadCommit) {
+                    Logger.info("Local branch '$currentBranch' is outdated: Local Head ${localHeadCommit.substring(0, 7)} !== Last analysed Head ${lastAnalysedCommit.sha.substring(0, 7)}")
+                    setBranchState(BranchState.OnAnalysedBranchOutdated)
+                } else {
+                    setBranchState(BranchState.OnAnalysedBranch)
+                }
+            } catch (e: Exception) {
+                Logger.error("Failed to get repository analysis: ${e.message}")
+                setBranchState(BranchState.OnUnknownBranch)
+            }
+        } else {
+            // Not an enabled branch and no PR loaded
+            setBranchState(BranchState.OnUnknownBranch)
+        }
+    }
+
+    private fun setBranchState(newState: BranchState) {
+        if (branchState != newState) {
+            val previousState = branchState
+            branchState = newState
+            lastBranchState = previousState
+
+            // Emit telemetry
+            Telemetry.track(BranchStateChangeEvent(newState.name))
+
+            Logger.info("Branch state changed from $previousState to $newState")
         }
     }
 
