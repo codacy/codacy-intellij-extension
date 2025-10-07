@@ -19,6 +19,8 @@ import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_TOOLS_
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_YAML_NAME
 import com.codacy.intellij.plugin.services.common.GitRemoteParser
 import com.codacy.intellij.plugin.services.common.IconUtils
+import com.codacy.intellij.plugin.services.common.OsType
+import com.codacy.intellij.plugin.services.common.SystemDetectionService
 import com.codacy.intellij.plugin.services.git.GitProvider
 import com.codacy.intellij.plugin.services.paths.PathsBehaviour
 import com.codacy.intellij.plugin.services.paths.behaviour.PathsUnix
@@ -172,19 +174,19 @@ class CodacyCliService() {
             repository: String,
             project: Project,
         ): CodacyCliService {
-            val systemOs = System.getProperty("os.name").lowercase()
+            val systemOs = SystemDetectionService.detectOs()
             val cli = project.getService(CodacyCliService::class.java)
 
             val (cliBehaviour, pathsBehaviour) = when {
-                systemOs == "mac os x" || systemOs.contains("darwin") -> {
+                systemOs == OsType.MacOS -> {
                     CliUnix() to PathsUnix()
                 }
 
-                systemOs == "linux" -> {
+                systemOs == OsType.Linux -> {
                     CliUnix() to PathsUnix()
                 }
 
-                systemOs.contains("windows") -> {
+                systemOs == OsType.Windows -> {
                     val process = ProcessBuilder("wsl", "--list", "--quiet")
                         .redirectErrorStream(true)
                         .start()

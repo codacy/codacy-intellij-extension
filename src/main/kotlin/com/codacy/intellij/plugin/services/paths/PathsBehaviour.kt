@@ -1,5 +1,7 @@
 package com.codacy.intellij.plugin.services.paths
 
+import com.codacy.intellij.plugin.services.common.OsType
+import com.codacy.intellij.plugin.services.common.SystemDetectionService
 import com.codacy.intellij.plugin.services.paths.behaviour.PathsUnix
 import com.codacy.intellij.plugin.services.paths.behaviour.PathsWindows
 import com.intellij.openapi.project.Project
@@ -16,18 +18,13 @@ interface PathsBehaviour {
 
     object Factory {
         fun build(): PathsBehaviour {
-            val systemOs = System.getProperty("os.name").lowercase()
+            val osType = SystemDetectionService.detectOs()
 
             val pathsInstance = when {
-                systemOs == "mac os x" || systemOs.contains("darwin") -> PathsUnix()
-
-                systemOs == "linux" -> PathsUnix()
-
-                systemOs.contains("windows") -> PathsWindows()
-
-                else -> {
-                    throw IllegalStateException("Unsupported OS: $systemOs")
-                }
+                osType == OsType.MacOS -> PathsUnix()
+                osType == OsType.Linux -> PathsUnix()
+                osType == OsType.Windows -> PathsWindows()
+                else -> throw IllegalStateException("Unsupported OS: $osType")
             }
 
             return pathsInstance
