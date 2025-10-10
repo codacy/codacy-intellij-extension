@@ -1,11 +1,13 @@
 package com.codacy.intellij.plugin.services.git
 
 import com.codacy.intellij.plugin.services.api.Api
+import com.codacy.intellij.plugin.services.api.models.Branch
 import com.codacy.intellij.plugin.services.api.models.RepositoryData
 import com.codacy.intellij.plugin.services.common.Config
 import com.codacy.intellij.plugin.services.common.GitRemoteParser
 import com.codacy.intellij.plugin.services.common.Logger
 import com.codacy.intellij.plugin.services.common.TimeoutManager
+import com.codacy.intellij.plugin.telemetry.BranchStateChangeEvent
 import com.codacy.intellij.plugin.telemetry.PullRequestStateChangeEvent
 import com.codacy.intellij.plugin.telemetry.RepositoryStateChangeEvent
 import com.codacy.intellij.plugin.telemetry.Telemetry
@@ -131,7 +133,7 @@ class RepositoryManager(private val project: Project) {
         } else {
             val currentHeadCommitSHA = GitProvider.getHeadCommitSHA(project)
             val currentHeadAhead: Boolean = GitProvider.isHeadAhead(project)
-            if (isPrLoadedAndNotCheckedOut(pullRequest, prState, currentHeadCommitSHA, currentHeadAhead)) {
+            if (!currentHeadCommitSHA.isNullOrEmpty() && isPrLoadedAndNotCheckedOut(pullRequest, prState, currentHeadCommitSHA, currentHeadAhead)) {
                 if (refreshTimeout.isTimeoutRunning()) {
                     refreshTimeout.clearTimeout()
                 }
