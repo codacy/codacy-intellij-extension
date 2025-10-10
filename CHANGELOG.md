@@ -6,4 +6,4 @@
 
 ### Added
 
-- Added support for Codacy MCP with both Junie and GitHub Copilot on Linux and macOS
+- Small bug fixes and improvements.
