@@ -6,6 +6,8 @@ import com.codacy.intellij.plugin.services.common.IconUtils
 import com.codacy.intellij.plugin.services.common.TimeoutManager
 import com.codacy.intellij.plugin.services.git.PullRequest
 import com.codacy.intellij.plugin.services.git.RepositoryManager
+import com.codacy.intellij.plugin.telemetry.Telemetry
+import com.codacy.intellij.plugin.telemetry.UserLoggedInEvent
 import com.intellij.icons.AllIcons
 import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.Disposable
@@ -82,6 +84,7 @@ class CodacyPullRequestSummaryToolWindowFactory : ToolWindowFactory {
                     exchange.close()
                     server.stop(0)
                     timeoutManager.clearTimeout()
+                    Telemetry.track(UserLoggedInEvent)
                     SwingUtilities.invokeLater {
                         repositoryManager.notifyDidChangeConfig()
                         updateToolWindowContent(project, toolWindow)

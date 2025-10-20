@@ -10,6 +10,10 @@ sealed class TelemetryEvent(open val eventKey: String) {
     abstract fun toPayload(): Map<String, Any?>
 }
 
+data object UserLoggedInEvent : TelemetryEvent("user_logged_in") {
+    override fun toPayload(): Map<String, Any?> = mapOf()
+}
+
 data object ExtensionInstalledEvent : TelemetryEvent("extension_installed") {
     override fun toPayload(): Map<String, Any?> = mapOf()
 }
