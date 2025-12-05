@@ -35,7 +35,7 @@ class Api {
             try {
                 config.init()
                 val url = URL("$baseUrl/$endpointUrl")
-                println("URL: $url TOKEN: $apiToken")
+                println("Request URL: $url")
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
                 connection.setRequestProperty("api-token", apiToken)

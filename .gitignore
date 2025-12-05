@@ -4,7 +4,7 @@
 .log
 build
 .codacy
-
+.DS_Store
 
 # Ignore IntelliJ AI rules
 .junie/guidelines.md
