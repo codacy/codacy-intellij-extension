@@ -6,4 +6,4 @@
 
 ### Added
 
-- Small bug fixes and improvements.
+- Removed token logging for better security. If you have shared logs, please make sure to rotate your tokens.
