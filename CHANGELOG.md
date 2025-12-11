@@ -6,4 +6,4 @@
 
 ### Added
 
-- Bumped pluginUntilBuild to support newer versions of the Jetbrains Platform
+- Bumped pluginUntilBuild to support newer versions of the JetBrains Platform
