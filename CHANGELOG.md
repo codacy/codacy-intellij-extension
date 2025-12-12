@@ -6,4 +6,4 @@
 
 ### Added
 
-- Removed token logging for better security. If you have shared logs, please make sure to rotate your tokens.
+- Bumped pluginUntilBuild to support newer versions of the JetBrains Platform
