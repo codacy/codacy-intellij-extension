@@ -12,3 +12,5 @@ build
 
 # Ignore IntelliJ AI rules
 .github/copilot-instructions.md
+
+CLAUDE.md
