@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
-### Added
+## [0.0.12]
 
-- Bumped pluginUntilBuild to support newer versions of the JetBrains Platform
+### Changed
+
+- Migrated to IntelliJ Platform Gradle Plugin v2
