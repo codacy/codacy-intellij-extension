@@ -73,7 +73,8 @@ class ConfigConfigurable : SearchableConfigurable {
 
     override fun getDisplayName(): String = "Codacy Plugin Settings"
 
-    override fun getId(): @NonNls String {
+    @NonNls
+    override fun getId(): String {
         return "codacyPluginSettings"
     }
 
