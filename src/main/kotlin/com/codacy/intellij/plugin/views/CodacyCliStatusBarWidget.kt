@@ -93,23 +93,26 @@ class CodacyCliStatusBarWidget(private val project: Project) :
                 popup.add(installBtn)
             }
 
-            val aiAgent = aiAgentService?.aiAgent ?: return@Consumer
+            val aiAgent = aiAgentService?.aiAgent
+            if (aiAgent != null) {
+                when (aiAgent.isPluginInstalled() to aiAgent.isPluginEnabled()) {
+                    false to false -> popup.add(goToPluginsPageButton(aiAgent.aiAgentName))
+                    true to false -> popup.add(goToPluginsPageButton(aiAgent.aiAgentName))
+                    true to true -> {
+                        if (aiAgentService?.mcpAiAgentState == AiAgentService.AiAgentState.NOT_INSTALLED) {
+                            popup.add(installMcpButton())
+                        }
 
-            when (aiAgent.isPluginInstalled() to aiAgent.isPluginEnabled()) {
-                false to false -> popup.add(goToPluginsPageButton(aiAgent.aiAgentName))
-                true to false -> popup.add(goToPluginsPageButton(aiAgent.aiAgentName))
-                true to true -> {
-                    if (aiAgentService?.mcpAiAgentState == AiAgentService.AiAgentState.NOT_INSTALLED) {
-                        popup.add(installMcpButton())
-                    }
-
-                    if (aiAgentService?.guidelinesAiAgentState == AiAgentService.AiAgentState.NOT_INSTALLED) {
-                        popup.add(installGuidelinesButton())
+                        if (aiAgentService?.guidelinesAiAgentState == AiAgentService.AiAgentState.NOT_INSTALLED) {
+                            popup.add(installGuidelinesButton())
+                        }
                     }
                 }
             }
 
-            popup.show(event.component, event.x, event.y)
+            if (popup.componentCount > 0) {
+                popup.show(event.component, event.x, event.y)
+            }
         }
     }
 

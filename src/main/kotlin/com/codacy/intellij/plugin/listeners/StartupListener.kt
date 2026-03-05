@@ -7,6 +7,7 @@ import com.codacy.intellij.plugin.services.cli.CodacyCliService
 import com.codacy.intellij.plugin.services.common.Config
 import com.codacy.intellij.plugin.services.common.GitRemoteParser
 import com.codacy.intellij.plugin.services.common.IconUtils
+import com.codacy.intellij.plugin.services.common.Logger
 import com.codacy.intellij.plugin.services.git.GitProvider
 import com.codacy.intellij.plugin.services.git.RepositoryManager
 import com.codacy.intellij.plugin.telemetry.ExtensionInstalledEvent
@@ -48,28 +49,34 @@ class StartupListener : StartupActivity {
         connection.subscribe(DynamicPluginListener.TOPIC, PluginStateListener())
 
         connection.subscribe(GitRepository.GIT_REPO_CHANGE, GitRepositoryChangeListener { repository ->
+            try {
+                val gitResult = initializeGit(project)
+                val repositoryManager = gitResult.first
+                val gitInfo = gitResult.second
 
+                CodacyCliService.getService(
+                    Provider.fromString(gitInfo.provider), gitInfo.organization, gitInfo.repository, project,
+                )
 
-            val gitResult = initializeGit(project)
-            val repositoryManager = gitResult.first
-            val gitInfo = gitResult.second
+                AiAgentService.getService(project)
 
-            CodacyCliService.getService(
-                Provider.fromString(gitInfo.provider), gitInfo.organization, gitInfo.repository, project,
-            )
-
-            AiAgentService.getService(project)
-
-            GlobalScope.launch {
-                Api().listTools()
-            }
-
-            if (repository.currentBranch != null) {
-                CoroutineScope(Dispatchers.Default).launch {
-                    repositoryManager.handleStateChange()
+                GlobalScope.launch {
+                    try {
+                        Api().listTools()
+                    } catch (e: Exception) {
+                        Logger.warn("Failed to fetch tools list: ${e.message}")
+                    }
                 }
-            } else {
-                repositoryManager.notifyDidChangeConfig()
+
+                if (repository.currentBranch != null) {
+                    CoroutineScope(Dispatchers.Default).launch {
+                        repositoryManager.handleStateChange()
+                    }
+                } else {
+                    repositoryManager.notifyDidChangeConfig()
+                }
+            } catch (e: Exception) {
+                Logger.warn("Codacy plugin could not initialize for this project: ${e.message}")
             }
         })
 
@@ -114,7 +121,11 @@ class StartupListener : StartupActivity {
     // E.g. if the user deletes CLI.sh, re-initialization of the project will check for the
     // presence of the CLI and mark its state as not-installed
     private fun onProjectFileSystemChange(project: Project, events: List<VFileEvent>) {
-        CodacyCliService.getService(project)
-        AiAgentService.getService(project)
+        try {
+            CodacyCliService.getService(project)
+            AiAgentService.getService(project)
+        } catch (e: Exception) {
+            Logger.warn("Codacy plugin could not refresh state for this project: ${e.message}")
+        }
     }
 }

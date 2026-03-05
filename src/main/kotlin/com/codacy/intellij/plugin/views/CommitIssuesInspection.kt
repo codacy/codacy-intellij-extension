@@ -33,6 +33,7 @@ class CodacyInspection : LocalInspectionTool() {
             val originalLineNumber = issue.commitIssue.lineNumber - 1
             var actualLineNumber = originalLineNumber
 
+            if (originalLineNumber < 0 || originalLineNumber >= document.lineCount) return@forEach
             val originalLineText = document.getText(TextRange(document.getLineStartOffset(originalLineNumber), document.getLineEndOffset(originalLineNumber)))
             if (originalLineText != issue.commitIssue.lineText) {
                 val totalLines = document.lineCount

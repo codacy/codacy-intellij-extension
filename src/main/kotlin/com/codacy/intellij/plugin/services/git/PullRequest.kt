@@ -2,6 +2,7 @@ package com.codacy.intellij.plugin.services.git
 
 import com.codacy.intellij.plugin.services.api.Api
 import com.codacy.intellij.plugin.services.api.models.*
+import com.codacy.intellij.plugin.services.common.Logger
 import com.codacy.intellij.plugin.services.common.TimeoutManager
 import com.codacy.intellij.plugin.services.git.RepositoryManager.RepositoryManagerState.*
 import kotlinx.coroutines.*
@@ -16,6 +17,7 @@ import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiManager
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.CommandProcessor
+import com.intellij.openapi.components.service
 import com.intellij.openapi.editor.Document
 
 const val MAX_IN_MEMORY_ITEMS: Int = 300
@@ -32,7 +34,7 @@ class PullRequest(
     var files: List<FileDetails> = mutableListOf()
     var gates: QualitySettingsData? = null
     private val refreshTimeout: TimeoutManager = TimeoutManager()
-    private val api = Api()
+    private val api = service<Api>()
     private var repositoryManager: RepositoryManager? = null
 
     fun init(
@@ -85,9 +87,13 @@ class PullRequest(
             prNumber
         ).data
 
-        val prCoverageReports = api.getPullRequestCoverageReports(repo.provider, repo.owner, repo.name, prNumber)
-        headCommit = prCoverageReports.data.headCommit.commitSha
-        baseCommit = prCoverageReports.data.commonAncestorCommit.commitSha
+        try {
+            val prCoverageReports = api.getPullRequestCoverageReports(repo.provider, repo.owner, repo.name, prNumber)
+            headCommit = prCoverageReports.data.headCommit.commitSha
+            baseCommit = prCoverageReports.data.commonAncestorCommit.commitSha
+        } catch (e: Exception) {
+            Logger.warn("Failed to fetch coverage reports for PR $prNumber: ${e.message}")
+        }
     }
 
     suspend fun fetchFiles() {
@@ -193,30 +199,35 @@ class PullRequest(
         ProgressManager.getInstance().run(object: Task.Backgroundable(project, "Refreshing pull request", false) {
             override fun run(indicator: com.intellij.openapi.progress.ProgressIndicator) {
                 GlobalScope.launch {
-                    val wasAnalysing = prWithAnalysis!!.isAnalysing
+                    try {
+                        val wasAnalysing = prWithAnalysis!!.isAnalysing
 
-                    if (!avoidMetadataFetch) fetchMetadata()
+                        if (!avoidMetadataFetch) fetchMetadata()
 
-                    fetchQualityGates()
-                    fetchIssues()
-                    fetchFiles()
+                        fetchQualityGates()
+                        fetchIssues()
+                        fetchFiles()
 
-                    // TODO: see if there is a better option. The suggested one -DaemonCodeAnalyzer.getInstance(project).restart(psiFile)-is not working
-                    refreshFilesWithTrick(project)
+                        // TODO: see if there is a better option. The suggested one -DaemonCodeAnalyzer.getInstance(project).restart(psiFile)-is not working
+                        refreshFilesWithTrick(project)
 
-                    repositoryManager!!.notifyDidUpdatePullRequest()
+                        repositoryManager!!.notifyDidUpdatePullRequest()
 
-                    val currentHeadCommitSHA: String = GitProvider.getHeadCommitSHA(project)!!
-                    val currentHeadAhead: Boolean = GitProvider.isHeadAhead(project)
+                        val currentHeadCommitSHA: String? = GitProvider.getHeadCommitSHA(project)
+                        val currentHeadAhead: Boolean = GitProvider.isHeadAhead(project)
 
-                    if (prWithAnalysis!!.isAnalysing || (headCommit != currentHeadCommitSHA && !currentHeadAhead)
-                    ) {
-                        refreshTimeout.clearTimeout()
-                        refreshTimeout.startTimeout(PR_REFRESH_TIME) {
-                            refresh()
+                        if (prWithAnalysis!!.isAnalysing || (currentHeadCommitSHA != null && headCommit != currentHeadCommitSHA && !currentHeadAhead)
+                        ) {
+                            refreshTimeout.clearTimeout()
+                            refreshTimeout.startTimeout(PR_REFRESH_TIME) {
+                                refresh()
+                            }
+                        } else if (wasAnalysing) {
+                            showAnalysisNotification()
                         }
-                    } else if (wasAnalysing) {
-                        showAnalysisNotification()
+                    } catch (e: Exception) {
+                        Logger.error("Failed to refresh pull request: ${e.message}")
+                        repositoryManager?.notifyDidUpdatePullRequest()
                     }
                 }
             }

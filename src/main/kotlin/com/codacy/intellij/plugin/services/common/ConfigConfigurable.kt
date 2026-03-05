@@ -26,10 +26,14 @@ class ConfigConfigurable : SearchableConfigurable {
 
     fun fetchAllAvailableCliVersions() {
         ApplicationManager.getApplication().executeOnPooledThread {
+            val tagNames = try {
+                fetchAvailableCliVersions()
+            } catch (e: Exception) {
+                emptyList()
+            }
+            val state = config.state
+            state.availableCliVersions = tagNames
             ApplicationManager.getApplication().invokeLater {
-                val state = config.state
-                val tagNames = fetchAvailableCliVersions()
-                state.availableCliVersions = tagNames
                 form?.setAvailableCliVersionsDropdown(tagNames, state.selectedCliVersion)
             }
         }

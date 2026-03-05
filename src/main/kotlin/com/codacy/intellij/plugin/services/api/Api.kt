@@ -47,7 +47,6 @@ class Api {
                         Gson().fromJson(response, responseClass)
                     }
                 } else {
-                    Logger.error("Failed to fetch data: HTTP response code $responseCode")
                     if (responseCode == HttpURLConnection.HTTP_UNAUTHORIZED)
                         config.storeApiToken("")
                     throw Exception("Failed to fetch data: HTTP response code $responseCode")
@@ -55,7 +54,7 @@ class Api {
             }
             catch (e: Exception) {
                 Logger.error("Failed to fetch data: ${e.message}")
-                responseClass.newInstance()
+                throw e
             }
         }
     }

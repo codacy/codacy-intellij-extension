@@ -73,7 +73,7 @@ class CodacyPullRequestSummaryToolWindowFactory : ToolWindowFactory {
         val timeoutManager = TimeoutManager()
         server.createContext("/token") { exchange ->
             try {
-                val token = exchange.requestURI.query.split("=").last()
+                val token = exchange.requestURI.query?.split("=")?.last() ?: ""
                 if (token.isNotEmpty()) {
                     val repositoryManager = project.service<RepositoryManager>()
                     configService.storeApiToken(token)

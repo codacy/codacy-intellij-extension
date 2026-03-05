@@ -51,8 +51,8 @@ class RepositoryManager(private val project: Project) {
     private var loadAttempts: Int = 0
     private val loadTimeout: TimeoutManager = TimeoutManager()
     private val refreshTimeout: TimeoutManager = TimeoutManager()
-    private val api = Api()
-    private val config = Config()
+    private val api = service<Api>()
+    private val config = service<Config>()
     private var pullRequestInstance: PullRequest? = null
 
     // Branch state management
@@ -108,7 +108,7 @@ class RepositoryManager(private val project: Project) {
                                 notifyDidLoadRepository()
                                 loadPullRequest()
                             }
-                        } catch (e: Error) {
+                        } catch (e: Exception) {
 //                            TODO("error type (ApiError)")
                             Logger.error("Failed to parse Git remote: ${e.message}")
                             setNewState(RepositoryManagerState.NoRepository)
@@ -126,6 +126,7 @@ class RepositoryManager(private val project: Project) {
             Logger.info("Branch changed: ${currentHead}, looking for pull request...")
             branch = currentHead
             pullRequest = null
+            loadAttempts = 0
             notifyDidUpdatePullRequest()
             setNewPullRequestState(PullRequestState.NoPullRequest)
 
