@@ -51,8 +51,8 @@ class RepositoryManager(private val project: Project) {
     private var loadAttempts: Int = 0
     private val loadTimeout: TimeoutManager = TimeoutManager()
     private val refreshTimeout: TimeoutManager = TimeoutManager()
-    private val api = Api()
-    private val config = Config()
+    private val api = service<Api>()
+    private val config = Config.instance
     private var pullRequestInstance: PullRequest? = null
 
     // Branch state management
@@ -73,10 +73,10 @@ class RepositoryManager(private val project: Project) {
         }
 
         if (currentRepository != gitRepository) {
+            currentRepository = gitRepository
             ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Opening repository", false) {
                 override fun run(indicator: com.intellij.openapi.progress.ProgressIndicator) {
                     GlobalScope.launch {
-                        currentRepository = gitRepository
                         try {
                             val remoteUrl = gitRepository.remotes.firstOrNull()?.pushUrls?.firstOrNull()
 
@@ -100,7 +100,7 @@ class RepositoryManager(private val project: Project) {
                                     enabledBranches = branchesResponse.data
                                     Logger.info("Fetched ${enabledBranches.size} enabled branches")
                                 } catch (e: Exception) {
-                                    Logger.error("Failed to fetch enabled branches: ${e.message}")
+                                    Logger.warn("Failed toAf fetch enabled branches: ${e.message}")
                                     enabledBranches = emptyList()
                                 }
 
@@ -108,9 +108,8 @@ class RepositoryManager(private val project: Project) {
                                 notifyDidLoadRepository()
                                 loadPullRequest()
                             }
-                        } catch (e: Error) {
-//                            TODO("error type (ApiError)")
-                            Logger.error("Failed to parse Git remote: ${e.message}")
+                        } catch (e: Exception) {
+                            Logger.warn("Failed to parse Git remote: ${e.message}")
                             setNewState(RepositoryManagerState.NoRepository)
                             return@launch
                         }
@@ -210,7 +209,7 @@ class RepositoryManager(private val project: Project) {
 
                         setNewPullRequestState(PullRequestState.Loaded)
                     } catch (e: Exception) {
-                        Logger.error("Error loading pull request: ${e.message}")
+                        Logger.warn("Error loading pull request: ${e.message}")
                     }
                 }
             }
@@ -319,7 +318,7 @@ class RepositoryManager(private val project: Project) {
                     setBranchState(BranchState.OnAnalysedBranch)
                 }
             } catch (e: Exception) {
-                Logger.error("Failed to get repository analysis: ${e.message}")
+                Logger.warn("Failed to get repository analysis: ${e.message}")
                 setBranchState(BranchState.OnUnknownBranch)
             }
         } else {

@@ -12,8 +12,10 @@ import com.codacy.intellij.plugin.services.git.RepositoryManager
 import com.codacy.intellij.plugin.telemetry.ExtensionInstalledEvent
 import com.codacy.intellij.plugin.telemetry.Telemetry
 import com.intellij.ide.plugins.DynamicPluginListener
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.startup.StartupActivity
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.openapi.vfs.newvfs.BulkFileListener
@@ -26,12 +28,24 @@ class StartupListener : StartupActivity {
 
     companion object {
         private const val MIN_REFRESH_INTERVAL_MS = 5000L
+        private val activeScopes = mutableListOf<CoroutineScope>()
+
+        fun cancelAllScopes() {
+            activeScopes.forEach { it.cancel() }
+            activeScopes.clear()
+        }
     }
 
     private var lastTriggeredTime = 0L
 
-    @OptIn(DelicateCoroutinesApi::class)
     override fun runActivity(project: Project) {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        activeScopes.add(scope)
+        Disposer.register(project, Disposable {
+            scope.cancel()
+            activeScopes.remove(scope)
+        })
+
         // Check for first installation
         val config = Config.instance
         if (config.state.isFirstRun) {
@@ -50,7 +64,7 @@ class StartupListener : StartupActivity {
         connection.subscribe(GitRepository.GIT_REPO_CHANGE, GitRepositoryChangeListener { repository ->
 
 
-            val gitResult = initializeGit(project)
+            val gitResult = initializeGit(project, scope)
             val repositoryManager = gitResult.first
             val gitInfo = gitResult.second
 
@@ -60,18 +74,25 @@ class StartupListener : StartupActivity {
 
             AiAgentService.getService(project)
 
-            GlobalScope.launch {
-                Api().listTools()
+            scope.launch {
+                service<Api>().listTools()
             }
 
             if (repository.currentBranch != null) {
-                CoroutineScope(Dispatchers.Default).launch {
+                scope.launch {
                     repositoryManager.handleStateChange()
                 }
             } else {
                 repositoryManager.notifyDidChangeConfig()
             }
         })
+
+        // Perform initial startup initialization without waiting for a git change event
+        val gitRepository = GitProvider.getRepository(project)
+        if (gitRepository != null) {
+            val repositoryManager = project.service<RepositoryManager>()
+            scope.launch { repositoryManager.open(gitRepository) }
+        }
 
         connection.subscribe(VirtualFileManager.VFS_CHANGES, object : BulkFileListener {
             private fun handle(events: List<VFileEvent>) {
@@ -95,12 +116,11 @@ class StartupListener : StartupActivity {
         })
     }
 
-    @OptIn(DelicateCoroutinesApi::class)
-    private fun initializeGit(project: Project): Pair<RepositoryManager, GitRemoteParser.GitRemoteInfo> {
+    private fun initializeGit(project: Project, scope: CoroutineScope): Pair<RepositoryManager, GitRemoteParser.GitRemoteInfo> {
         val gitRepository = GitProvider.getRepository(project)
         val repositoryManager = project.service<RepositoryManager>()
         if (gitRepository != null && repositoryManager.currentRepository != gitRepository)
-            GlobalScope.launch { repositoryManager.open(gitRepository) }
+            scope.launch { repositoryManager.open(gitRepository) }
 
         val remote = gitRepository?.remotes?.firstOrNull()
             ?: throw IllegalStateException("No remote found in the Git repository")

@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [0.1.0]
+
+### Changed
+
+- Stability update 
+
 ## [0.0.12]
 
 ### Changed

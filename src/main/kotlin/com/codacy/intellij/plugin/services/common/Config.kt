@@ -93,7 +93,7 @@ class Config : PersistentStateComponent<Config.State> {
 
             if (state.userId == null) {
                 GlobalScope.launch {
-                    val userProfile = Api().getUserProfile()
+                    val userProfile = service<Api>().getUserProfile()
 
                     if (userProfile?.id != null && state.userId == null) {
                         state.userId = userProfile.id

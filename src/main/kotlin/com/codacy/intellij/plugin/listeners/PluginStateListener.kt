@@ -7,6 +7,7 @@ import com.intellij.ide.plugins.*
 class PluginStateListener : DynamicPluginListener {
 
     override fun beforePluginUnload(pluginDescriptor: IdeaPluginDescriptor, isUpdate: Boolean) {
+        StartupListener.cancelAllScopes()
         Telemetry.track(ExtensionUnloadedEvent)
 
         super.beforePluginUnload(pluginDescriptor, isUpdate)
