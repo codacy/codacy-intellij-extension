@@ -5,6 +5,7 @@ import com.codacy.intellij.plugin.services.agent.model.Provider
 import com.codacy.intellij.plugin.services.api.Api
 import com.codacy.intellij.plugin.services.cli.CodacyCliService
 import com.codacy.intellij.plugin.services.common.Config
+import com.codacy.intellij.plugin.services.common.Logger
 import com.codacy.intellij.plugin.services.common.GitRemoteParser
 import com.codacy.intellij.plugin.services.common.IconUtils
 import com.codacy.intellij.plugin.services.git.GitProvider
@@ -28,11 +29,13 @@ class StartupListener : StartupActivity {
 
     companion object {
         private const val MIN_REFRESH_INTERVAL_MS = 5000L
-        private val activeScopes = mutableListOf<CoroutineScope>()
+        private val activeScopes = java.util.Collections.synchronizedList(mutableListOf<CoroutineScope>())
 
         fun cancelAllScopes() {
-            activeScopes.forEach { it.cancel() }
-            activeScopes.clear()
+            synchronized(activeScopes) {
+                activeScopes.forEach { it.cancel() }
+                activeScopes.clear()
+            }
         }
     }
 
@@ -75,7 +78,11 @@ class StartupListener : StartupActivity {
             AiAgentService.getService(project)
 
             scope.launch {
-                service<Api>().listTools()
+                try {
+                    service<Api>().listTools()
+                } catch (e: Exception) {
+                    Logger.warn("Failed to load tools: ${e.message}")
+                }
             }
 
             if (repository.currentBranch != null) {

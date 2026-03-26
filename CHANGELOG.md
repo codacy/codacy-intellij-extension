@@ -8,7 +8,7 @@
 
 ### Changed
 
-- Stability update 
+- Stability update
 
 ## [0.0.12]
 
