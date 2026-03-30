@@ -19,6 +19,7 @@ import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_TOOLS_
 import com.codacy.intellij.plugin.services.common.Config.Companion.CODACY_YAML_NAME
 import com.codacy.intellij.plugin.services.common.GitRemoteParser
 import com.codacy.intellij.plugin.services.common.IconUtils
+import com.codacy.intellij.plugin.services.common.Logger
 import com.codacy.intellij.plugin.services.common.OsType
 import com.codacy.intellij.plugin.services.common.SystemDetectionService
 import com.codacy.intellij.plugin.services.git.GitProvider
@@ -492,16 +493,11 @@ class CodacyCliService() {
                 }
 
                 if (fileOutput.isFailure) {
-                    notificationManager.createNotification(
-                        "CLI tools has not generated a result file",
-                        "Current document will not be analyzed, please try again",
-                        NotificationType.ERROR
-                    ).notify(project)
-                    return@withTempFile
+                    Logger.info("No analysis result file found for file: $file. Is it a supported file type?")
                 }
 
                 results = fileOutput.getOrNull()
-                    .let { SarifUtil.readReport(StringReader(it)).runs }
+                    ?.let { SarifUtil.readReport(StringReader(it)).runs }
                     ?.let(::processSarifResults)
                     ?: emptyList()
 
