@@ -16,4 +16,4 @@
 
 ### Changed
 
-- Migrated to IntelliJ Platform Gradle Plugin v2aasa
+- Migrated to IntelliJ Platform Gradle Plugin v2
