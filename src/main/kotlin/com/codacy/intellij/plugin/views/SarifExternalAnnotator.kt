@@ -24,7 +24,12 @@ class SarifExternalAnnotator : ExternalAnnotator<FileContentInfo, List<Processed
     }
 
     override fun collectInformation(file: PsiFile): FileContentInfo? {
-        val cliService = CodacyCliService.getService(file.project)
+        val cliService = try {
+            CodacyCliService.getService(file.project)
+        } catch (e: IllegalStateException) {
+            logger.debug("Skipping annotation: ${e.message}")
+            return null
+        }
         if (cliService.codacyCliState != CodacyCliService.CodacyCliState.INITIALIZED) {
             return null
         }
@@ -52,7 +57,12 @@ class SarifExternalAnnotator : ExternalAnnotator<FileContentInfo, List<Processed
         try {
             logger.info("Running analysis for file: ${collectedInfo.file.virtualFile.path}, hash: $hash")
             val file = collectedInfo.file
-            val cli = CodacyCliService.getService(file.project)
+            val cli = try {
+                CodacyCliService.getService(file.project)
+            } catch (e: IllegalStateException) {
+                logger.debug("Skipping annotation in doAnnotate: ${e.message}")
+                return null
+            }
             val result = runBlocking {
                 cli.analyze(file.virtualFile.path, null)
             }
