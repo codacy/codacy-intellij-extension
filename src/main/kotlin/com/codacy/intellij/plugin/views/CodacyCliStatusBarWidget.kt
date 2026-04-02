@@ -7,6 +7,7 @@ import com.codacy.intellij.plugin.services.agent.AiAgentService
 import com.codacy.intellij.plugin.services.agent.model.RepositoryParams
 import com.codacy.intellij.plugin.services.cli.CodacyCliService
 import com.codacy.intellij.plugin.services.cli.CodacyCliService.CodacyCliState
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
@@ -33,6 +34,7 @@ class CodacyCliStatusBarWidget(private val project: Project) :
 
     override fun install(statusBar: StatusBar) {
         this.statusBar = statusBar
+        statusBar.updateWidget(ID())
     }
 
     //Ensures widget will be fully initialized after CodacyCLIService
@@ -42,17 +44,32 @@ class CodacyCliStatusBarWidget(private val project: Project) :
         project.messageBus.connect().subscribe(WidgetStateListener.CLI_TOPIC, object : WidgetStateListener {
             override fun stateChanged(newState: ServiceState) {
                 if (newState == ServiceState.RUNNING) {
-                    val _cliService = CodacyCliService.getService(project)
+                    val _cliService = project.getService(CodacyCliService::class.java)
                     cliService = _cliService
 
                     _cliService.addStateListener {
-                        statusBar?.updateWidget(ID())
+                        ApplicationManager.getApplication().invokeLater {
+                            statusBar?.updateWidget(ID())
+                        }
                     }
 
-                    statusBar?.updateWidget(ID())
+                    ApplicationManager.getApplication().invokeLater {
+                        statusBar?.updateWidget(ID())
+                    }
                 }
             }
         })
+
+        // If the service was already initialized before this widget subscribed, grab it directly
+        val existingService = project.getService(CodacyCliService::class.java)
+        if (existingService.isServiceInstantiated) {
+            cliService = existingService
+            existingService.addStateListener {
+                ApplicationManager.getApplication().invokeLater {
+                    statusBar?.updateWidget(ID())
+                }
+            }
+        }
         project.messageBus.connect().subscribe(WidgetStateListener.AI_AGENT_TOPIC, object : WidgetStateListener {
             override fun stateChanged(newState: ServiceState) {
                 if (newState == ServiceState.RUNNING) {
@@ -70,15 +87,16 @@ class CodacyCliStatusBarWidget(private val project: Project) :
     override fun getIcon(): Icon = cliService?.codacyCliState?.icon ?: CodacyCliState.NOT_INSTALLED.icon
 
     override fun getTooltipText(): String {
-        val selectedAiAgentName = "AI Agent: ${aiAgentService?.aiAgent?.aiAgentName.toString()}"
+        val agentName = aiAgentService?.aiAgent?.aiAgentName?.toString() ?: "not selected"
+        val selectedAiAgentName = "AI Agent: $agentName"
         return when (cliService?.codacyCliState) {
+            null -> "Codacy CLI is not installed, please install it - $selectedAiAgentName"
             is CodacyCliState.INSTALLED -> "Codacy CLI is installed, waiting to be initialized - $selectedAiAgentName"
             is CodacyCliState.INSTALLING -> "Codacy CLI is being installed, please wait... - $selectedAiAgentName"
             is CodacyCliState.INITIALIZED -> "Codacy CLI is initialized and ready to use - $selectedAiAgentName"
             is CodacyCliState.ANALYZING -> "Codacy CLI is analyzing your code, please wait... - $selectedAiAgentName"
             is CodacyCliState.ERROR -> "An error occurred with Codacy CLI: ${cliService?.codacyCliState} - $selectedAiAgentName"
             is CodacyCliState.NOT_INSTALLED -> "Codacy CLI is not installed, please install it - $selectedAiAgentName"
-            else -> "Something went wrong with the CLI - $selectedAiAgentName"
         }
     }
 
@@ -93,23 +111,26 @@ class CodacyCliStatusBarWidget(private val project: Project) :
                 popup.add(installBtn)
             }
 
-            val aiAgent = aiAgentService?.aiAgent ?: return@Consumer
+            val aiAgent = aiAgentService?.aiAgent
+            if (aiAgent != null) {
+                when (aiAgent.isPluginInstalled() to aiAgent.isPluginEnabled()) {
+                    false to false -> popup.add(goToPluginsPageButton(aiAgent.aiAgentName))
+                    true to false -> popup.add(goToPluginsPageButton(aiAgent.aiAgentName))
+                    true to true -> {
+                        if (aiAgentService?.mcpAiAgentState == AiAgentService.AiAgentState.NOT_INSTALLED) {
+                            popup.add(installMcpButton())
+                        }
 
-            when (aiAgent.isPluginInstalled() to aiAgent.isPluginEnabled()) {
-                false to false -> popup.add(goToPluginsPageButton(aiAgent.aiAgentName))
-                true to false -> popup.add(goToPluginsPageButton(aiAgent.aiAgentName))
-                true to true -> {
-                    if (aiAgentService?.mcpAiAgentState == AiAgentService.AiAgentState.NOT_INSTALLED) {
-                        popup.add(installMcpButton())
-                    }
-
-                    if (aiAgentService?.guidelinesAiAgentState == AiAgentService.AiAgentState.NOT_INSTALLED) {
-                        popup.add(installGuidelinesButton())
+                        if (aiAgentService?.guidelinesAiAgentState == AiAgentService.AiAgentState.NOT_INSTALLED) {
+                            popup.add(installGuidelinesButton())
+                        }
                     }
                 }
             }
 
-            popup.show(event.component, event.x, event.y)
+            if (popup.componentCount > 0) {
+                popup.show(event.component, event.x, event.y)
+            }
         }
     }
 
@@ -151,20 +172,19 @@ class CodacyCliStatusBarWidget(private val project: Project) :
     @OptIn(DelicateCoroutinesApi::class)
     private fun installAndInitializeCliButton(): JMenuItem? {
         val message = when (cliService?.codacyCliState) {
+            null, is CodacyCliState.NOT_INSTALLED -> "Install and Initialize CLI"
             is CodacyCliState.ERROR -> "Install and Initialize CLI Again"
-            is CodacyCliState.NOT_INSTALLED -> "Install and Initialize CLI"
             is CodacyCliState.INSTALLED -> "Initialize CLI"
             else -> null
         }
 
-        val installCliBtn = if (message != null)
-            JMenuItem("Install CLI")
-        else null
-
+        val installCliBtn = if (message != null) JMenuItem(message) else null
 
         installCliBtn?.addActionListener {
-            val message = when (cliService?.codacyCliState) {
-                is CodacyCliState.ERROR, CodacyCliState.NOT_INSTALLED -> Messages.showYesNoDialog(
+            val svc = cliService ?: CodacyCliService.getServiceWithoutRemote(project).also { cliService = it }
+
+            val confirmed = when (svc.codacyCliState) {
+                is CodacyCliState.ERROR, is CodacyCliState.NOT_INSTALLED -> Messages.showYesNoDialog(
                     project,
                     "For CLI to work, you need to install it",
                     "CLI Not Installed",
@@ -185,11 +205,9 @@ class CodacyCliStatusBarWidget(private val project: Project) :
                 else -> null
             }
 
-            if (message != null) {
-                if (message == Messages.YES) {
-                    GlobalScope.launch(Dispatchers.IO) {
-                        cliService?.prepareCli(true)
-                    }
+            if (confirmed == Messages.YES) {
+                GlobalScope.launch(Dispatchers.IO) {
+                    svc.prepareCli(true)
                 }
             }
         }

@@ -65,40 +65,52 @@ class StartupListener : StartupActivity {
         connection.subscribe(DynamicPluginListener.TOPIC, PluginStateListener())
 
         connection.subscribe(GitRepository.GIT_REPO_CHANGE, GitRepositoryChangeListener { repository ->
-
-
             val gitResult = initializeGit(project, scope)
-            val repositoryManager = gitResult.first
-            val gitInfo = gitResult.second
 
-            CodacyCliService.getService(
-                Provider.fromString(gitInfo.provider), gitInfo.organization, gitInfo.repository, project,
-            )
-
-            AiAgentService.getService(project)
-
-            scope.launch {
-                try {
-                    service<Api>().listTools()
-                } catch (e: Exception) {
-                    Logger.warn("Failed to load tools: ${e.message}")
-                }
-            }
-
-            if (repository.currentBranch != null) {
-                scope.launch {
-                    repositoryManager.handleStateChange()
-                }
+            if (gitResult == null) {
+                Logger.info("No git remote found, initializing services without remote info.")
+                CodacyCliService.getServiceWithoutRemote(project)
+                AiAgentService.getServiceWithoutRemote(project)
             } else {
-                repositoryManager.notifyDidChangeConfig()
+                val repositoryManager = gitResult.first
+                val gitInfo = gitResult.second
+
+                CodacyCliService.getService(
+                    Provider.fromString(gitInfo.provider), gitInfo.organization, gitInfo.repository, project,
+                )
+
+                AiAgentService.getService(project)
+
+                scope.launch {
+                    try {
+                        service<Api>().listTools()
+                    } catch (e: Exception) {
+                        Logger.warn("Failed to load tools: ${e.message}")
+                    }
+                }
+
+                if (repository.currentBranch != null) {
+                    scope.launch {
+                        repositoryManager.handleStateChange()
+                    }
+                } else {
+                    repositoryManager.notifyDidChangeConfig()
+                }
             }
         })
 
         // Perform initial startup initialization without waiting for a git change event
         val gitRepository = GitProvider.getRepository(project)
         if (gitRepository != null) {
-            val repositoryManager = project.service<RepositoryManager>()
-            scope.launch { repositoryManager.open(gitRepository) }
+            val gitResult = initializeGit(project, scope)
+            if (gitResult == null) {
+                CodacyCliService.getServiceWithoutRemote(project)
+                AiAgentService.getServiceWithoutRemote(project)
+            } else {
+                val (_, gitInfo) = gitResult
+                CodacyCliService.getService(Provider.fromString(gitInfo.provider), gitInfo.organization, gitInfo.repository, project)
+                AiAgentService.getService(project)
+            }
         }
 
         connection.subscribe(VirtualFileManager.VFS_CHANGES, object : BulkFileListener {
@@ -123,15 +135,13 @@ class StartupListener : StartupActivity {
         })
     }
 
-    private fun initializeGit(project: Project, scope: CoroutineScope): Pair<RepositoryManager, GitRemoteParser.GitRemoteInfo> {
+    private fun initializeGit(project: Project, scope: CoroutineScope): Pair<RepositoryManager, GitRemoteParser.GitRemoteInfo>? {
         val gitRepository = GitProvider.getRepository(project)
         val repositoryManager = project.service<RepositoryManager>()
         if (gitRepository != null && repositoryManager.currentRepository != gitRepository)
             scope.launch { repositoryManager.open(gitRepository) }
 
-        val remote = gitRepository?.remotes?.firstOrNull()
-            ?: throw IllegalStateException("No remote found in the Git repository")
-
+        val remote = gitRepository?.remotes?.firstOrNull() ?: return null
         val gitInfo = GitRemoteParser.parseGitRemote(remote.firstUrl!!)
 
         return Pair(repositoryManager, gitInfo)
@@ -141,7 +151,12 @@ class StartupListener : StartupActivity {
     // E.g. if the user deletes CLI.sh, re-initialization of the project will check for the
     // presence of the CLI and mark its state as not-installed
     private fun onProjectFileSystemChange(project: Project, events: List<VFileEvent>) {
-        CodacyCliService.getService(project)
-        AiAgentService.getService(project)
+        if (GitProvider.getRepository(project) == null) return
+        try {
+            CodacyCliService.getService(project)
+            AiAgentService.getService(project)
+        } catch (e: IllegalStateException) {
+            Logger.info("Git provider or remote not available.")
+        }
     }
 }

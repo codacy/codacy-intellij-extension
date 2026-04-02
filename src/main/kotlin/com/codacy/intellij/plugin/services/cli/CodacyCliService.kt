@@ -84,7 +84,7 @@ class CodacyCliService() {
 
         data object NOT_INSTALLED : CodacyCliState {
             override fun toString() = "Not Installed"
-            override val icon: Icon = AllIcons.General.Gear
+            override val icon: Icon = IconUtils.CodacyIcon
         }
     }
 
@@ -97,7 +97,8 @@ class CodacyCliService() {
     private lateinit var cliBehaviour: CodacyCliBehaviour
     private lateinit var pathsBehaviour: PathsBehaviour
 
-    private var isServiceInstantiated: Boolean = false
+    var isServiceInstantiated: Boolean = false
+        private set
 
     private val cliStateListeners = mutableListOf<() -> Unit>()
 
@@ -167,6 +168,10 @@ class CodacyCliService() {
                 gitInfo.repository,
                 project,
             )
+        }
+
+        fun getServiceWithoutRemote(project: Project): CodacyCliService {
+            return getService(Provider.GITHUB, "", "", project)
         }
 
         fun getService(
