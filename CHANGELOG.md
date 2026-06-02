@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## [0.1.1]
+
+### Changed
+
+- Fixed a bug where the plugin would not properly run local analysis on saved files.
+- The plugin now groups issues for the same line into a single notification, improving readability and reducing clutter in the IDE.
+
 ## [0.1.0]
 
 ### Changed

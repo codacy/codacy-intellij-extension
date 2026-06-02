@@ -17,6 +17,10 @@ import java.util.concurrent.ConcurrentHashMap
 private val resultCache = ConcurrentHashMap<Int, List<ProcessedSarifResult>?>()
 private val runningHashes = ConcurrentHashMap.newKeySet<Int>()
 
+internal fun invalidateAnalysisCacheForHash(hash: Int) {
+    resultCache.remove(hash)
+}
+
 class SarifExternalAnnotator : ExternalAnnotator<FileContentInfo, List<ProcessedSarifResult>>() {
 
     companion object {
@@ -78,17 +82,19 @@ class SarifExternalAnnotator : ExternalAnnotator<FileContentInfo, List<Processed
     override fun apply(file: PsiFile, annotationResult: List<ProcessedSarifResult>?, holder: AnnotationHolder) {
         val document = file.viewProvider.document ?: return
 
-        for (result in annotationResult.orEmpty()) {
-            val region = result.region ?: continue
+        val grouped = annotationResult.orEmpty()
+            .filter { it.region?.startLine != null }
+            .groupBy { it.region }
+
+        for ((region, results) in grouped) {
+            region ?: continue
             val startLine = region.startLine ?: continue
             val startColumn = region.startColumn ?: 1
 
             val textRange: TextRange = try {
                 if (region.endLine != null && region.endColumn != null) {
-                    logger.info("Creating text range for multi-line region: startLine=$startLine, startColumn=$startColumn, endLine=${region.endLine}, endColumn=${region.endColumn}")
                     getTextRange(document, startLine, startColumn, region.endLine, region.endColumn)
                 } else {
-                    logger.info("Creating text range for single point: startLine=$startLine, startColumn=$startColumn")
                     getTextRangeForSinglePoint(document, startLine, startColumn)
                 }
             } catch (e: IndexOutOfBoundsException) {
@@ -97,11 +103,30 @@ class SarifExternalAnnotator : ExternalAnnotator<FileContentInfo, List<Processed
             }
 
             if (!textRange.isEmpty) {
-                holder.newAnnotation(HighlightSeverity.ERROR, result.message)
+                val firstMessage = results.first().message
+                val severity = results.maxByOrNull { severityRank(it.level) }?.level ?: results.first().level
+                val annotation = holder.newAnnotation(severityToHighlight(severity), firstMessage)
                     .range(textRange)
-                    .create()
+                if (results.size > 1) {
+                    annotation.tooltip(results.joinToString("<br/>") { it.message })
+                }
+                annotation.create()
             }
         }
+    }
+
+    private fun severityRank(level: String): Int = when (level.lowercase()) {
+        "error" -> 3
+        "warning" -> 2
+        "note", "info" -> 1
+        else -> 0
+    }
+
+    private fun severityToHighlight(level: String): HighlightSeverity = when (level.lowercase()) {
+        "error" -> HighlightSeverity.ERROR
+        "warning" -> HighlightSeverity.WARNING
+        "note", "info" -> HighlightSeverity.INFORMATION
+        else -> HighlightSeverity.WARNING
     }
 
     private fun getTextRangeForSinglePoint(

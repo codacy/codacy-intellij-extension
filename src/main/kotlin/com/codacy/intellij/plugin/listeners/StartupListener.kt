@@ -12,15 +12,21 @@ import com.codacy.intellij.plugin.services.git.GitProvider
 import com.codacy.intellij.plugin.services.git.RepositoryManager
 import com.codacy.intellij.plugin.telemetry.ExtensionInstalledEvent
 import com.codacy.intellij.plugin.telemetry.Telemetry
+import com.codacy.intellij.plugin.views.invalidateAnalysisCacheForHash
+import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.ide.plugins.DynamicPluginListener
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.startup.StartupActivity
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.openapi.vfs.newvfs.BulkFileListener
+import com.intellij.openapi.vfs.newvfs.events.VFileContentChangeEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileEvent
+import com.intellij.psi.PsiDocumentManager
+import com.intellij.psi.PsiManager
 import git4idea.repo.GitRepository
 import git4idea.repo.GitRepositoryChangeListener
 import kotlinx.coroutines.*
@@ -131,6 +137,7 @@ class StartupListener : StartupActivity {
 
             override fun after(events: List<VFileEvent>) {
                 handle(events)
+                triggerAnalysisForSavedFiles(project, events)
             }
         })
     }
@@ -157,6 +164,37 @@ class StartupListener : StartupActivity {
             AiAgentService.getService(project)
         } catch (e: IllegalStateException) {
             Logger.info("Git provider or remote not available.")
+        }
+    }
+
+    private fun triggerAnalysisForSavedFiles(project: Project, events: List<VFileEvent>) {
+        val basePath = project.basePath ?: return
+        val savedFiles = events
+            .filterIsInstance<VFileContentChangeEvent>()
+            .mapNotNull { it.file }
+            .filter { vf ->
+                vf.isValid &&
+                    !vf.isDirectory &&
+                    vf.path.startsWith(basePath) &&
+                    !vf.path.contains("/.codacy/")
+            }
+
+        if (savedFiles.isEmpty()) return
+
+        ApplicationManager.getApplication().invokeLater {
+            if (project.isDisposed) return@invokeLater
+            val psiManager = PsiManager.getInstance(project)
+            val documentManager = PsiDocumentManager.getInstance(project)
+            val daemon = DaemonCodeAnalyzer.getInstance(project)
+            for (vf in savedFiles) {
+                val psiFile = psiManager.findFile(vf) ?: continue
+                // cli.analyze reads from disk, so the cached entry (keyed by document hash)
+                // reflects the pre-save disk content. Drop it so the next pass re-runs the CLI.
+                documentManager.getDocument(psiFile)?.let { doc ->
+                    invalidateAnalysisCacheForHash(doc.text.hashCode())
+                }
+                daemon.restart(psiFile)
+            }
         }
     }
 }
