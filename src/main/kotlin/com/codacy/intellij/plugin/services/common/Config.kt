@@ -6,10 +6,13 @@ import com.codacy.intellij.plugin.telemetry.Telemetry
 import com.intellij.credentialStore.CredentialAttributes
 import com.intellij.credentialStore.Credentials
 import com.intellij.ide.passwordSafe.PasswordSafe
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.*
 import com.intellij.util.SlowOperations
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.util.*
 
@@ -18,10 +21,11 @@ import java.util.*
     storages = [Storage("CodacyPluginSettings.xml")]
 )
 @Service
-class Config : PersistentStateComponent<Config.State> {
+class Config : PersistentStateComponent<Config.State>, Disposable {
 
     private var state = State()
     private var apiToken: String? = null
+    private val serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     companion object {
         const val CODACY_DIRECTORY_NAME: String = ".codacy"
@@ -78,7 +82,6 @@ class Config : PersistentStateComponent<Config.State> {
         }
     }
 
-    @OptIn(DelicateCoroutinesApi::class)
     fun storeApiToken(token: String?) {
         val credentialAttributes = createCredentialAttributes()
         if (token.isNullOrBlank()) {
@@ -92,8 +95,8 @@ class Config : PersistentStateComponent<Config.State> {
             log.info("API Token stored")
 
             if (state.userId == null) {
-                GlobalScope.launch {
-                    val userProfile = Api().getUserProfile()
+                serviceScope.launch {
+                    val userProfile = service<Api>().getUserProfile()
 
                     if (userProfile?.id != null && state.userId == null) {
                         state.userId = userProfile.id
@@ -122,4 +125,8 @@ class Config : PersistentStateComponent<Config.State> {
 
     private fun createCredentialAttributes(): CredentialAttributes =
         CredentialAttributes("Codacy", "")
+
+    override fun dispose() {
+        serviceScope.cancel()
+    }
 }

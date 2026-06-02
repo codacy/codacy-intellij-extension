@@ -19,12 +19,14 @@ import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import git4idea.repo.GitRepository
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 const val LOAD_RETRY_TIME: Long = 2 * 60 * 1000
 const val MAX_LOAD_ATTEMPTS: Int = 5
 
 @Service(Service.Level.PROJECT)
-class RepositoryManager(private val project: Project) {
+class RepositoryManager(private val project: Project) : Disposable {
 
     enum class RepositoryManagerState {
         Initializing,
@@ -51,8 +53,8 @@ class RepositoryManager(private val project: Project) {
     private var loadAttempts: Int = 0
     private val loadTimeout: TimeoutManager = TimeoutManager()
     private val refreshTimeout: TimeoutManager = TimeoutManager()
-    private val api = Api()
-    private val config = Config()
+    private val api = service<Api>()
+    private val config = Config.instance
     private var pullRequestInstance: PullRequest? = null
 
     // Branch state management
@@ -60,11 +62,13 @@ class RepositoryManager(private val project: Project) {
     private var branchState: BranchState = BranchState.OnUnknownBranch
     private var lastBranchState: BranchState? = null
 
+    private val serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private val openMutex = Mutex()
+
     private var onDidUpdatePullRequestListeners = mutableListOf<() -> Unit>()
     private var onDidLoadRepositoryListeners = mutableListOf<() -> Unit>()
     private var onDidChangeStateListeners = mutableListOf<() -> Unit>()
 
-    @OptIn(DelicateCoroutinesApi::class)
     suspend fun open(gitRepository: GitRepository) {
         config.init()
         if (config.storedApiToken.isNullOrBlank()) {
@@ -72,11 +76,15 @@ class RepositoryManager(private val project: Project) {
             return
         }
 
-        if (currentRepository != gitRepository) {
+        if (openMutex.withLock {
+                if (currentRepository != gitRepository) {
+                    currentRepository = gitRepository
+                    true
+                } else false
+            }) {
             ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Opening repository", false) {
                 override fun run(indicator: com.intellij.openapi.progress.ProgressIndicator) {
-                    GlobalScope.launch {
-                        currentRepository = gitRepository
+                    serviceScope.launch {
                         try {
                             val remoteUrl = gitRepository.remotes.firstOrNull()?.pushUrls?.firstOrNull()
 
@@ -100,7 +108,7 @@ class RepositoryManager(private val project: Project) {
                                     enabledBranches = branchesResponse.data
                                     Logger.info("Fetched ${enabledBranches.size} enabled branches")
                                 } catch (e: Exception) {
-                                    Logger.error("Failed to fetch enabled branches: ${e.message}")
+                                    Logger.warn("Failed to fetch enabled branches: ${e.message}")
                                     enabledBranches = emptyList()
                                 }
 
@@ -108,9 +116,8 @@ class RepositoryManager(private val project: Project) {
                                 notifyDidLoadRepository()
                                 loadPullRequest()
                             }
-                        } catch (e: Error) {
-//                            TODO("error type (ApiError)")
-                            Logger.error("Failed to parse Git remote: ${e.message}")
+                        } catch (e: Exception) {
+                            Logger.warn("Failed to parse Git remote: ${e.message}")
                             setNewState(RepositoryManagerState.NoRepository)
                             return@launch
                         }
@@ -157,7 +164,6 @@ class RepositoryManager(private val project: Project) {
                 !currentHeadAhead
 
 
-    @OptIn(DelicateCoroutinesApi::class)
     private suspend fun loadPullRequest() {
         if (loadTimeout.isTimeoutRunning()) loadTimeout.clearTimeout()
         if (state != RepositoryManagerState.Loaded || repository == null) return
@@ -178,7 +184,7 @@ class RepositoryManager(private val project: Project) {
 
         ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Loading pull request", false) {
             override fun run(indicator: com.intellij.openapi.progress.ProgressIndicator) {
-                GlobalScope.launch {
+                serviceScope.launch {
                     try {
                         val repositoryPullRequests =
                             api.listRepositoryPullRequests(repo.provider, repo.owner, repo.name)
@@ -191,7 +197,7 @@ class RepositoryManager(private val project: Project) {
 
                             if (loadAttempts < MAX_LOAD_ATTEMPTS) {
                                 loadTimeout.startTimeout(LOAD_RETRY_TIME) {
-                                    CoroutineScope(Dispatchers.Default).launch {
+                                    serviceScope.launch {
                                         loadPullRequest()
                                     }
                                 }
@@ -210,7 +216,7 @@ class RepositoryManager(private val project: Project) {
 
                         setNewPullRequestState(PullRequestState.Loaded)
                     } catch (e: Exception) {
-                        Logger.error("Error loading pull request: ${e.message}")
+                        Logger.warn("Error loading pull request: ${e.message}")
                     }
                 }
             }
@@ -319,7 +325,7 @@ class RepositoryManager(private val project: Project) {
                     setBranchState(BranchState.OnAnalysedBranch)
                 }
             } catch (e: Exception) {
-                Logger.error("Failed to get repository analysis: ${e.message}")
+                Logger.warn("Failed to get repository analysis: ${e.message}")
                 setBranchState(BranchState.OnUnknownBranch)
             }
         } else {
@@ -339,6 +345,10 @@ class RepositoryManager(private val project: Project) {
 
             Logger.info("Branch state changed from $previousState to $newState")
         }
+    }
+
+    override fun dispose() {
+        serviceScope.cancel()
     }
 
 }

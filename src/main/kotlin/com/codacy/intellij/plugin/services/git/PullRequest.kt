@@ -7,6 +7,7 @@ import com.codacy.intellij.plugin.services.git.RepositoryManager.RepositoryManag
 import kotlinx.coroutines.*
 import com.intellij.notification.*
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.components.service
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
@@ -32,7 +33,7 @@ class PullRequest(
     var files: List<FileDetails> = mutableListOf()
     var gates: QualitySettingsData? = null
     private val refreshTimeout: TimeoutManager = TimeoutManager()
-    private val api = Api()
+    private val api = service<Api>()
     private var repositoryManager: RepositoryManager? = null
 
     fun init(

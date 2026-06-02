@@ -78,6 +78,13 @@ class AiAgentService {
 
             return service
         }
+
+        fun getServiceWithoutRemote(project: Project): AiAgentService {
+            val pathsBehaviour = PathsBehaviour.Factory.build()
+            val service = project.getService(AiAgentService::class.java)
+            service.initService(Provider.GITHUB, "", "", project, pathsBehaviour)
+            return service
+        }
     }
 
 

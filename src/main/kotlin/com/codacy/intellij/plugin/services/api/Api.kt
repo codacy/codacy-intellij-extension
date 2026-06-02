@@ -13,7 +13,7 @@ import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 
-@Service
+@Service(Service.Level.APP)
 class Api {
 
     private val config = service<Config>()
@@ -47,15 +47,13 @@ class Api {
                         Gson().fromJson(response, responseClass)
                     }
                 } else {
-                    Logger.error("Failed to fetch data: HTTP response code $responseCode")
                     if (responseCode == HttpURLConnection.HTTP_UNAUTHORIZED)
                         config.storeApiToken("")
                     throw Exception("Failed to fetch data: HTTP response code $responseCode")
                 }
             }
             catch (e: Exception) {
-                Logger.error("Failed to fetch data: ${e.message}")
-                responseClass.newInstance()
+                throw Exception("Failed to fetch data: ${e.message}", e)
             }
         }
     }
@@ -131,7 +129,7 @@ class Api {
         return try {
             makeRequest(endpointUrl, GetUserProfileResponse::class.java).data
         } catch (e: Exception) {
-            Logger.error("Failed to fetch user profile: ${e.message}")
+            Logger.warn("Failed to fetch user profile: ${e.message}")
             null
         }
     }
