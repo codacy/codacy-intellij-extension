@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [0.1.2]
+
+### Changed
+
+- Update usage of deprecated JetBrains APIs to ensure compatibility with the latest IntelliJ versions.
+
 ## [0.1.1]
 
 ### Changed
