@@ -34,7 +34,6 @@ import com.intellij.notification.NotificationType
 import com.intellij.openapi.application.ApplicationNamesInfo
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.updateSettings.impl.pluginsAdvertisement.notificationGroup
 import com.intellij.ui.AnimatedIcon
 import com.intellij.util.io.exists
 import com.intellij.util.io.isFile
@@ -200,7 +199,9 @@ class CodacyCliService() {
                     val exitCode = process.waitFor()
                     if (exitCode != 0) {
                         val output = process.inputStream.bufferedReader().readText()
-                        notificationGroup.createNotification(
+                        NotificationGroupManager.getInstance()
+                            .getNotificationGroup("CodacyNotifications")
+                            .createNotification(
                             "Windows Subsystem for Linux detection failure",
                             "WSL not present on this machine. Command output: $output",
                             NotificationType.WARNING
@@ -211,7 +212,9 @@ class CodacyCliService() {
                 }
 
                 else -> {
-                    notificationGroup.createNotification(
+                    NotificationGroupManager.getInstance()
+                        .getNotificationGroup("CodacyNotifications")
+                        .createNotification(
                         "Unsupported OS",
                         "The Codacy plugin does not support the operating system: $systemOs",
                         NotificationType.ERROR
@@ -660,7 +663,7 @@ class CodacyCliService() {
         val ide = ApplicationNamesInfo.getInstance()
 
         if (ide.productName.lowercase().contains("idea").not()) {
-            notificationGroup.createNotification(
+            notificationManager.createNotification(
                 "Non supported IDE Detected",
                 "Currently we do not actively test the Codacy plugin on ${ide.productName}. Please consider using it on IntelliJ IDEA for the best experience.",
                 NotificationType.INFORMATION

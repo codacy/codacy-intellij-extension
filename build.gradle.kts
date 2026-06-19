@@ -106,6 +106,16 @@ intellijPlatform {
             listOf(it.split('-').getOrElse(1) { "default" }.split('.').first())
         }
     }
+
+    pluginVerification {
+        // Mute the template-word lint checks: the plugin ID/name are already
+        // published on the Marketplace, so they cannot be renamed. These are
+        // structural warnings, not compatibility problems.
+        freeArgs = listOf("-mute", "TemplateWordInPluginId,TemplateWordInPluginName")
+        ides {
+            recommended()
+        }
+    }
 }
 
 // Configure Gradle Changelog Plugin - read more: https://github.com/JetBrains/gradle-changelog-plugin

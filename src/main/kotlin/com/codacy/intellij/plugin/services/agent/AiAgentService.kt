@@ -8,10 +8,10 @@ import com.codacy.intellij.plugin.services.common.GitRemoteParser
 import com.codacy.intellij.plugin.services.git.GitProvider
 import com.codacy.intellij.plugin.services.paths.PathsBehaviour
 import com.google.gson.Gson
+import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.updateSettings.impl.pluginsAdvertisement.notificationGroup
 import java.io.File
 import java.nio.file.Paths
 import kotlin.io.path.exists
@@ -53,6 +53,10 @@ class AiAgentService {
     private var isServiceInstantiated: Boolean = false
 
     private var serviceState = ServiceState.STARTING
+
+    private val notificationManager = NotificationGroupManager
+        .getInstance()
+        .getNotificationGroup("CodacyNotifications")
 
     companion object {
         fun getService(project: Project): AiAgentService {
@@ -175,7 +179,7 @@ class AiAgentService {
                 file.writeText(gson.toJson(newConfig))
             }
 
-            notificationGroup.createNotification(
+            notificationManager.createNotification(
                 "MCP configuration installed successfully",
                 NotificationType.INFORMATION,
             ).notify(project)
@@ -218,7 +222,7 @@ class AiAgentService {
 
     fun installGuidelines(project: Project, params: RepositoryParams?) {
         if (!Config.instance.state.allowGenerateGuidelines) {
-            notificationGroup.createNotification(
+            notificationManager.createNotification(
                 "Guidelines won't be installed",
                 "Plugin settings have guidelines disabled, if you want to enable this, please check plugin settings",
                 NotificationType.WARNING,
@@ -252,7 +256,7 @@ class AiAgentService {
             )
             McpRulesTemplate.addRulesToGitignore(basePath, rulesPath)
 
-            notificationGroup.createNotification(
+            notificationManager.createNotification(
                 "Guidelines installed successfully",
                 NotificationType.INFORMATION,
             ).notify(project)
@@ -265,7 +269,7 @@ class AiAgentService {
                     McpRulesTemplate.convertRulesToMarkdown(newRules, existingContent)
                 )
 
-                notificationGroup.createNotification(
+                notificationManager.createNotification(
                     "Guidelines installed successfully",
                     NotificationType.INFORMATION,
                 ).notify(project)
@@ -273,7 +277,7 @@ class AiAgentService {
                 guidelinesAiAgentState = AiAgentState.INSTALLED
             } catch (e: Exception) {
                 guidelinesAiAgentState = AiAgentState.NOT_INSTALLED
-                notificationGroup.createNotification(
+                notificationManager.createNotification(
                     "Paring error while installing guidelines",
                     NotificationType.ERROR,
                 ).notify(project)

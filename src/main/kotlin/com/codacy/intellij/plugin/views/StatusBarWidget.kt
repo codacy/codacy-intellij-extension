@@ -15,7 +15,6 @@ import com.intellij.openapi.wm.StatusBar
 import com.intellij.openapi.wm.StatusBarWidget
 import com.intellij.openapi.wm.StatusBarWidget.*
 import com.intellij.openapi.wm.ToolWindowManager
-import com.intellij.openapi.wm.impl.status.EditorBasedWidget
 import com.intellij.ui.AnimatedIcon
 import com.intellij.util.Alarm
 import com.intellij.util.Consumer
@@ -47,9 +46,12 @@ class RotatedIcon(private val icon: Icon, private val angle: Double) : Icon {
 
 @Suppress("UnstableApiUsage")
 class CodacyStatusBarWidget (
-    project: Project,
+    private val project: Project,
 ) :
-    EditorBasedWidget(project), MultipleTextValuesPresentation, Multiframe {
+    StatusBarWidget, MultipleTextValuesPresentation, Multiframe {
+
+    private var myStatusBar: StatusBar? = null
+    private var isDisposed: Boolean = false
 
     override fun ID(): String {
         return "com.codacy.intellij.plugin.CodacyStatusBarWidget"
@@ -66,7 +68,7 @@ class CodacyStatusBarWidget (
     private val myUpdateBackgroundAlarm = Alarm(Alarm.ThreadToUse.POOLED_THREAD, this)
 
     override fun install(statusBar: StatusBar) {
-        super.install(statusBar)
+        myStatusBar = statusBar
 
         repositoryManager.onDidUpdatePullRequest {
             ApplicationManager.getApplication().invokeLater {
@@ -149,7 +151,7 @@ class CodacyStatusBarWidget (
         myTooltip = getToolTip()
         myIcon = getIcon()
 
-        if (myStatusBar != null) myStatusBar.updateWidget(ID())
+        myStatusBar?.updateWidget(ID())
     }
 
     private fun getToolTip(): String? {
@@ -180,6 +182,11 @@ class CodacyStatusBarWidget (
         return Consumer {
             ToolWindowManager.getInstance(project).getToolWindow("Codacy")?.activate(null)
         }
+    }
+
+    override fun dispose() {
+        isDisposed = true
+        myStatusBar = null
     }
 
     companion object {

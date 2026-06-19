@@ -44,13 +44,11 @@ sealed class AiAgent {
 
     fun isPluginEnabled(): Boolean {
         val id = PluginId.getId(pluginId)
-        val descriptor = PluginManagerCore.getPlugin(id) ?: return false
-
-        return descriptor.isEnabled && PluginManagerCore.isPluginInstalled(id)
+        return PluginManagerCore.isPluginInstalled(id) && !PluginManagerCore.isDisabled(id)
     }
 
-    fun isPluginInstalled(): Boolean = PluginManagerCore
-        .getPlugin(PluginId.getId(pluginId)) != null
+    fun isPluginInstalled(): Boolean =
+        PluginManagerCore.isPluginInstalled(PluginId.getId(pluginId))
 
     fun isMcpInstalled(token: String?): Boolean {
         if (token.isNullOrBlank()) return false

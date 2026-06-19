@@ -15,3 +15,8 @@ build
 
 # Ignore Claude AI rules
 CLAUDE.md
+VERITY.md
+
+# Verity
+.verity
+.claude
