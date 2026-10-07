@@ -5,6 +5,8 @@ import com.codacy.intellij.plugin.services.common.SystemDetectionService
 import com.intellij.openapi.application.ApplicationNamesInfo
 import com.intellij.openapi.components.Service
 import com.segment.analytics.kotlin.core.Analytics
+import com.segment.analytics.kotlin.core.BaseEvent
+import com.segment.analytics.kotlin.core.platform.Plugin
 
 sealed class TelemetryEvent(open val eventKey: String) {
     abstract fun toPayload(): Map<String, Any?>
@@ -56,6 +58,20 @@ object Telemetry {
             application = "Codacy Intellij Plugin"
             flushAt = 3
             flushInterval = 10
+        }.add(PersistedIdsPlugin())
+    }
+
+    // The Segment SDK keeps its own anonymousId/userId under /tmp, which is wiped on reboot,
+    // so every restart looked like a new install. Use the ids we persist in the plugin settings.
+    private class PersistedIdsPlugin : Plugin {
+        override val type = Plugin.Type.Enrichment
+        override lateinit var analytics: Analytics
+
+        override fun execute(event: BaseEvent): BaseEvent {
+            val state = Config.instance.state
+            event.anonymousId = state.anonymousId
+            state.userId?.let { event.userId = it.toString() }
+            return event
         }
     }
 
